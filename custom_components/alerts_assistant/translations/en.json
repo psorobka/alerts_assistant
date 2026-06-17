@@ -1,0 +1,94 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Alerts Assistant",
+        "description": "Set up the Alerts Assistant hub. You can add individual alerts afterwards."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Already configured. Only a single Alerts Assistant hub is allowed."
+    }
+  },
+  "config_subentries": {
+    "alert": {
+      "title": "Alert",
+      "initiate_flow": {
+        "user": "Add alert",
+        "reconfigure": "Edit alert"
+      },
+      "step": {
+        "user": {
+          "title": "Add alert",
+          "data": {
+            "name": "Name",
+            "entity_id": "Watched entity",
+            "state": "Trigger state",
+            "notifiers": "Notify services",
+            "repeat": "Repeat (minutes)",
+            "can_acknowledge": "Can be acknowledged",
+            "ack_from_notification": "Acknowledge button in notifications",
+            "skip_first": "Skip first notification",
+            "title": "Notification title",
+            "message": "Notification message",
+            "done_message": "Done message",
+            "data": "Extra notification data"
+          },
+          "data_description": {
+            "state": "The alert fires while the watched entity is in this state.",
+            "repeat": "Minutes between notifications. Comma-separate to escalate, e.g. 15, 30, 60.",
+            "skip_first": "Wait one interval before the first notification.",
+            "ack_from_notification": "Add an Acknowledge button to mobile_app notifications (requires Can be acknowledged).",
+            "message": "Optional template. Defaults to the alert name.",
+            "done_message": "Optional template sent when the alert clears.",
+            "data": "Optional key/values passed to the notify service (e.g. priority, channel)."
+          }
+        },
+        "reconfigure": {
+          "title": "Edit alert",
+          "data": {
+            "name": "Name",
+            "entity_id": "Watched entity",
+            "state": "Trigger state",
+            "notifiers": "Notify services",
+            "repeat": "Repeat (minutes)",
+            "can_acknowledge": "Can be acknowledged",
+            "ack_from_notification": "Acknowledge button in notifications",
+            "skip_first": "Skip first notification",
+            "title": "Notification title",
+            "message": "Notification message",
+            "done_message": "Done message",
+            "data": "Extra notification data"
+          },
+          "data_description": {
+            "state": "The alert fires while the watched entity is in this state.",
+            "repeat": "Minutes between notifications. Comma-separate to escalate, e.g. 15, 30, 60.",
+            "skip_first": "Wait one interval before the first notification.",
+            "ack_from_notification": "Add an Acknowledge button to mobile_app notifications (requires Can be acknowledged).",
+            "message": "Optional template. Defaults to the alert name.",
+            "done_message": "Optional template sent when the alert clears.",
+            "data": "Optional key/values passed to the notify service (e.g. priority, channel)."
+          }
+        }
+      },
+      "error": {
+        "invalid_repeat": "Enter one or more positive numbers of minutes, comma-separated.",
+        "no_notifiers": "Select at least one notify service."
+      }
+    }
+  },
+  "services": {
+    "turn_on": {
+      "name": "Reset (re-arm)",
+      "description": "Removes the acknowledgement so the alert notifies again while still firing."
+    },
+    "turn_off": {
+      "name": "Acknowledge",
+      "description": "Acknowledges the alert, silencing further notifications until it clears."
+    },
+    "toggle": {
+      "name": "Toggle acknowledgement",
+      "description": "Toggles the acknowledged state of the alert."
+    }
+  }
+}

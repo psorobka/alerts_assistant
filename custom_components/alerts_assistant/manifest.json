@@ -1,0 +1,12 @@
+{
+  "domain": "alerts_assistant",
+  "name": "Alerts Assistant",
+  "codeowners": ["@psorobka"],
+  "config_flow": true,
+  "documentation": "https://github.com/psorobka/alerts_assistant",
+  "integration_type": "hub",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/psorobka/alerts_assistant/issues",
+  "single_config_entry": true,
+  "version": "0.1.0"
+}

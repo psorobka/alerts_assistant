@@ -1,0 +1,94 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Alerts Assistant",
+        "description": "Skonfiguruj hub Alerts Assistant. Poszczególne alerty dodasz później."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Już skonfigurowano. Dozwolony jest tylko jeden hub Alerts Assistant."
+    }
+  },
+  "config_subentries": {
+    "alert": {
+      "title": "Alert",
+      "initiate_flow": {
+        "user": "Dodaj alert",
+        "reconfigure": "Edytuj alert"
+      },
+      "step": {
+        "user": {
+          "title": "Dodaj alert",
+          "data": {
+            "name": "Nazwa",
+            "entity_id": "Obserwowana encja",
+            "state": "Stan wyzwalający",
+            "notifiers": "Usługi powiadomień",
+            "repeat": "Powtarzanie (minuty)",
+            "can_acknowledge": "Można potwierdzić",
+            "ack_from_notification": "Przycisk potwierdzenia w powiadomieniach",
+            "skip_first": "Pomiń pierwsze powiadomienie",
+            "title": "Tytuł powiadomienia",
+            "message": "Treść powiadomienia",
+            "done_message": "Wiadomość po ustąpieniu",
+            "data": "Dodatkowe dane powiadomienia"
+          },
+          "data_description": {
+            "state": "Alert jest aktywny, dopóki obserwowana encja jest w tym stanie.",
+            "repeat": "Minuty między powiadomieniami. Po przecinku dla eskalacji, np. 15, 30, 60.",
+            "skip_first": "Odczekaj jeden interwał przed pierwszym powiadomieniem.",
+            "ack_from_notification": "Dodaj przycisk potwierdzenia do powiadomień mobile_app (wymaga „Można potwierdzić”).",
+            "message": "Opcjonalny szablon. Domyślnie nazwa alertu.",
+            "done_message": "Opcjonalny szablon wysyłany po ustąpieniu alertu.",
+            "data": "Opcjonalne pary klucz/wartość przekazywane do usługi notify (np. priority, channel)."
+          }
+        },
+        "reconfigure": {
+          "title": "Edytuj alert",
+          "data": {
+            "name": "Nazwa",
+            "entity_id": "Obserwowana encja",
+            "state": "Stan wyzwalający",
+            "notifiers": "Usługi powiadomień",
+            "repeat": "Powtarzanie (minuty)",
+            "can_acknowledge": "Można potwierdzić",
+            "ack_from_notification": "Przycisk potwierdzenia w powiadomieniach",
+            "skip_first": "Pomiń pierwsze powiadomienie",
+            "title": "Tytuł powiadomienia",
+            "message": "Treść powiadomienia",
+            "done_message": "Wiadomość po ustąpieniu",
+            "data": "Dodatkowe dane powiadomienia"
+          },
+          "data_description": {
+            "state": "Alert jest aktywny, dopóki obserwowana encja jest w tym stanie.",
+            "repeat": "Minuty między powiadomieniami. Po przecinku dla eskalacji, np. 15, 30, 60.",
+            "skip_first": "Odczekaj jeden interwał przed pierwszym powiadomieniem.",
+            "ack_from_notification": "Dodaj przycisk potwierdzenia do powiadomień mobile_app (wymaga „Można potwierdzić”).",
+            "message": "Opcjonalny szablon. Domyślnie nazwa alertu.",
+            "done_message": "Opcjonalny szablon wysyłany po ustąpieniu alertu.",
+            "data": "Opcjonalne pary klucz/wartość przekazywane do usługi notify (np. priority, channel)."
+          }
+        }
+      },
+      "error": {
+        "invalid_repeat": "Podaj jedną lub więcej dodatnich liczb minut, oddzielonych przecinkami.",
+        "no_notifiers": "Wybierz co najmniej jedną usługę powiadomień."
+      }
+    }
+  },
+  "services": {
+    "turn_on": {
+      "name": "Reset (uzbrój ponownie)",
+      "description": "Usuwa potwierdzenie, więc alert znów powiadamia, dopóki jest aktywny."
+    },
+    "turn_off": {
+      "name": "Potwierdź",
+      "description": "Potwierdza alert, wyciszając kolejne powiadomienia aż do ustąpienia."
+    },
+    "toggle": {
+      "name": "Przełącz potwierdzenie",
+      "description": "Przełącza stan potwierdzenia alertu."
+    }
+  }
+}

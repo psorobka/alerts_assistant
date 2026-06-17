@@ -1,0 +1,14 @@
+turn_on:
+  target:
+    entity:
+      domain: alerts_assistant
+
+turn_off:
+  target:
+    entity:
+      domain: alerts_assistant
+
+toggle:
+  target:
+    entity:
+      domain: alerts_assistant
