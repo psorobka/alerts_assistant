@@ -2,7 +2,6 @@
   "config": {
     "step": {
       "user": {
-        "title": "Alerts Assistant",
         "description": "Skonfiguruj hub Alerts Assistant. Poszczególne alerty dodasz później."
       }
     },
@@ -13,6 +12,7 @@
   "config_subentries": {
     "alert": {
       "title": "Alert",
+      "entry_type": "Alert",
       "initiate_flow": {
         "user": "Dodaj alert",
         "reconfigure": "Edytuj alert"

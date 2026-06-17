@@ -11,12 +11,16 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import SERVICE_TOGGLE, SERVICE_TURN_OFF, SERVICE_TURN_ON
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.helpers.typing import ConfigType
 
 from .alert import Alert, build_alert
 from .const import DOMAIN, LOGGER, SUBENTRY_TYPE_ALERT
+
+# This integration is configured from config entries only (no YAML).
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 # runtime_data maps subentry_id -> live Alert entity.
 type AlertsAssistantConfigEntry = ConfigEntry[dict[str, Alert]]
