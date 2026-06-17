@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
 from homeassistant.config_entries import ConfigSubentryData
-
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.alerts_assistant.const import DOMAIN, SUBENTRY_TYPE_ALERT

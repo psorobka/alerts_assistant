@@ -7,7 +7,6 @@ from types import MappingProxyType
 from homeassistant.config_entries import ConfigEntryState, ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-
 from pytest_homeassistant_custom_component.common import async_mock_service
 
 from custom_components.alerts_assistant.const import DOMAIN, SUBENTRY_TYPE_ALERT

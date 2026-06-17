@@ -7,7 +7,6 @@ from datetime import timedelta
 from homeassistant.const import STATE_IDLE, STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
-
 from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
     async_mock_service,

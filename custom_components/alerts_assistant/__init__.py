@@ -74,7 +74,10 @@ async def _async_reconcile(
     # Remove alerts that were deleted, or replace ones whose config changed.
     for subentry_id in list(live):
         deleted = subentry_id not in desired
-        changed = not deleted and live[subentry_id].source_config != desired[subentry_id]
+        changed = (
+            not deleted
+            and live[subentry_id].source_config != desired[subentry_id]
+        )
         if not (deleted or changed):
             continue
         alert = live.pop(subentry_id)

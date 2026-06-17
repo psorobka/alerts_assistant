@@ -8,7 +8,7 @@ acknowledged or the watched entity leaves that state.
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.const import STATE_IDLE, STATE_OFF, STATE_ON

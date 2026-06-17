@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType, InvalidData
-
+import pytest
 from pytest_homeassistant_custom_component.common import async_mock_service
 
 from custom_components.alerts_assistant.const import DOMAIN, SUBENTRY_TYPE_ALERT
