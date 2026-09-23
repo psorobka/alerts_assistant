@@ -13,6 +13,7 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers import selector
+from homeassistant.helpers.selector import SelectOptionDict
 import voluptuous as vol
 
 from .const import (
@@ -65,7 +66,7 @@ def _repeat_to_text(value: Any) -> str:
     return str(value)
 
 
-def _alert_schema(notify_options: list[str]) -> vol.Schema:
+def _alert_schema(notify_options: list[SelectOptionDict]) -> vol.Schema:
     """Build the add/edit schema for a single alert."""
     return vol.Schema(
         {
@@ -79,6 +80,7 @@ def _alert_schema(notify_options: list[str]) -> vol.Schema:
                     options=notify_options,
                     multiple=True,
                     mode=selector.SelectSelectorMode.DROPDOWN,
+                    custom_value=True,
                 )
             ),
             vol.Required(
@@ -128,20 +130,54 @@ class AlertsAssistantConfigFlow(ConfigFlow, domain=DOMAIN):
 class AlertSubentryFlowHandler(ConfigSubentryFlow):
     """Add and reconfigure individual alerts."""
 
-    def _notify_services(self) -> list[str]:
-        return sorted(self.hass.services.async_services().get(NOTIFY_DOMAIN, {}))
+    def _notify_targets(self) -> list[SelectOptionDict]:
+        """List notify services and entities with human-readable labels."""
+        options = [
+            SelectOptionDict(
+                value=f"{NOTIFY_DOMAIN}.{service}",
+                label=self._notify_label(service),
+            )
+            for service in self.hass.services.async_services().get(NOTIFY_DOMAIN, {})
+            if service != "send_message"
+        ]
+        options.extend(
+            SelectOptionDict(
+                value=state.entity_id,
+                label=state.attributes.get("friendly_name", state.entity_id),
+            )
+            for state in self.hass.states.async_all(NOTIFY_DOMAIN)
+        )
+        return sorted(options, key=lambda option: option["label"].casefold())
+
+    def _notify_label(self, service: str) -> str:
+        """Return a friendly label for a legacy notify service."""
+        if service == "persistent_notification":
+            return "Home Assistant notification"
+        if service.startswith("mobile_app_"):
+            device = service.removeprefix("mobile_app_")
+            state = self.hass.states.get(f"notify.{device}")
+            if state and (friendly_name := state.attributes.get("friendly_name")):
+                return friendly_name
+            return device.replace("_", " ").title()
+        return service.replace("_", " ").title()
 
     def _validate(
         self, user_input: dict[str, Any]
     ) -> tuple[dict[str, Any] | None, dict[str, str]]:
         """Validate input, returning (cleaned_data, errors).
 
-        Notifier membership and template syntax are already enforced by the
-        Select/Template selectors at schema level, so only the free-text
-        `repeat` field and an empty notifier list need checking here.
+        Template syntax is enforced by the template selector. Custom notify
+        targets are allowed, so this checks the free-text repeat field and
+        that at least one target was provided.
         """
         errors: dict[str, str] = {}
         data = dict(user_input)
+        # Store legacy services in the same fully-qualified format as targets
+        # shown in the selector. Bare service names remain accepted for old flows.
+        data[CONF_NOTIFIERS] = [
+            target if "." in target else f"{NOTIFY_DOMAIN}.{target}"
+            for target in user_input.get(CONF_NOTIFIERS, [])
+        ]
 
         try:
             data[CONF_REPEAT] = _parse_repeat(user_input[CONF_REPEAT])
@@ -164,7 +200,7 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         """Add a new alert."""
-        options = self._notify_services()
+        options = self._notify_targets()
         errors: dict[str, str] = {}
         if user_input is not None:
             data, errors = self._validate(user_input)
@@ -184,8 +220,12 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
         subentry = self._get_reconfigure_subentry()
         # Keep already-selected notifiers selectable even if the service is
         # momentarily unregistered.
-        options = sorted(
-            set(self._notify_services()) | set(subentry.data.get(CONF_NOTIFIERS, []))
+        options = self._notify_targets()
+        option_values = {option["value"] for option in options}
+        options.extend(
+            SelectOptionDict(value=target, label=target)
+            for target in subentry.data.get(CONF_NOTIFIERS, [])
+            if target not in option_values
         )
         errors: dict[str, str] = {}
         if user_input is not None:

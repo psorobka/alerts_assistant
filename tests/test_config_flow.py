@@ -101,8 +101,8 @@ async def test_subentry_invalid_repeat(hass: HomeAssistant) -> None:
     assert result["errors"] == {"repeat": "invalid_repeat"}
 
 
-async def test_unknown_notifier_rejected_by_selector(hass: HomeAssistant) -> None:
-    """With no notify.test registered, the select selector rejects it (S4)."""
+async def test_manual_notify_target_is_accepted(hass: HomeAssistant) -> None:
+    """A manually entered notify target is accepted and stored fully qualified."""
     entry = make_entry()
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
@@ -110,10 +110,30 @@ async def test_unknown_notifier_rejected_by_selector(hass: HomeAssistant) -> Non
     result = await hass.config_entries.subentries.async_init(
         (entry.entry_id, SUBENTRY_TYPE_ALERT), context={"source": SOURCE_USER}
     )
-    with pytest.raises(InvalidData):
-        await hass.config_entries.subentries.async_configure(
-            result["flow_id"], dict(VALID_INPUT)
-        )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {**VALID_INPUT, "notifiers": ["notify.custom_target"]}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    subentry = next(iter(entry.subentries.values()))
+    assert subentry.data["notifiers"] == ["notify.custom_target"]
+
+
+async def test_bare_service_target_is_normalized(hass: HomeAssistant) -> None:
+    """Bare service names from older versions are normalized on save."""
+    async_mock_service(hass, "notify", "test")
+    entry = make_entry()
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_TYPE_ALERT), context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], dict(VALID_INPUT)
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    subentry = next(iter(entry.subentries.values()))
+    assert subentry.data["notifiers"] == ["notify.test"]
 
 
 async def test_invalid_template_rejected_by_selector(hass: HomeAssistant) -> None:

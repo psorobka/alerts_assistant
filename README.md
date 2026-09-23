@@ -17,7 +17,7 @@ UI, with no restart.
   notifications silences the alert with one tap.
 - Optional "done" message when the alert clears.
 - Optional notification title / message templates and extra `data`.
-- Notify via any `notify.*` service, selectable from a list.
+- Notify via `notify.*` services or entities, selectable by friendly name or entered manually.
 - One hub, many alerts: add/edit/delete each alert independently from the UI —
   editing one alert never disturbs the others.
 
@@ -66,7 +66,9 @@ Assistant Companion App's
 tapping the button fires a `mobile_app_notification_action` event, which the
 integration matches back to the specific alert and acknowledges it — no need to open
 the app. The action is added to the notification's `data.actions`, merged with any
-extra data you configured. Other notifiers (Telegram, etc.) ignore the action.
+extra data you configured. Legacy `notify.mobile_app_*` services are required for
+action buttons. Modern notify entities receive title and message through
+`notify.send_message`; they do not support custom data or action buttons.
 
 ## Installation (HACS)
 
@@ -90,7 +92,7 @@ Or copy `custom_components/alerts_assistant` into your `config/custom_components
 | **Name**                 | yes      | Friendly name; also derives the `alerts_assistant.<name>` entity id.        |
 | **Watched entity**       | yes      | The entity whose state is monitored.                                        |
 | **Trigger state**        | yes      | The state that makes the alert fire (default `on`).                         |
-| **Notify services**      | yes      | One or more `notify.*` services to call, chosen from the available list.    |
+| **Notification targets** | yes      | One or more `notify.*` services or entities, chosen from the list or entered manually. |
 | **Repeat (minutes)**     | yes      | Comma-separated minutes between notifications; escalates then holds the last.|
 | **Can be acknowledged**  | —        | If off, the alert cannot be silenced with `turn_off` (default on).          |
 | **Acknowledge button in notifications** | — | Adds an Acknowledge action to mobile_app notifications (default on; needs *Can be acknowledged*). |
@@ -116,8 +118,8 @@ These act on `alerts_assistant.*` entities (like the built-in alert):
 - One hub config entry owns all alerts; each alert is a subentry you manage
   independently. Adding, editing or removing one alert does not re-notify or
   un-acknowledge the others.
-- Notify targets are the legacy `notify.<service>` services (matching the built-in
-  alert), selectable from a dropdown.
+- Notify targets include legacy `notify.<service>` services and modern notify
+  entities, selected by friendly name or entered manually.
 
 ## Development
 

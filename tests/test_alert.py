@@ -216,6 +216,45 @@ async def test_multiple_notifiers_and_data(hass: HomeAssistant) -> None:
     assert "actions" in calls1[0].data["data"]
 
 
+async def test_qualified_legacy_target_sends_to_service(hass: HomeAssistant) -> None:
+    """A fully-qualified legacy target invokes its notify service."""
+    calls = async_mock_service(hass, "notify", "legacy")
+    hass.states.async_set(WATCHED, STATE_OFF)
+    entry = make_entry(alert_config(notifiers=["notify.legacy"]))
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    hass.states.async_set(WATCHED, STATE_ON)
+    await hass.async_block_till_done()
+
+    assert len(calls) == 1
+    assert calls[0].data["message"] == "Test"
+    assert "actions" in calls[0].data["data"]
+
+
+async def test_notify_entity_uses_send_message(hass: HomeAssistant) -> None:
+    """Modern notify entities receive messages through notify.send_message."""
+    calls = async_mock_service(hass, "notify", "send_message")
+    hass.states.async_set(WATCHED, STATE_OFF)
+    hass.states.async_set("notify.phone", "unknown", {"friendly_name": "Phone"})
+    entry = make_entry(
+        alert_config(notifiers=["notify.phone"], title="Alert title", data={"x": 1})
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    hass.states.async_set(WATCHED, STATE_ON)
+    await hass.async_block_till_done()
+
+    assert len(calls) == 1
+    assert calls[0].data["entity_id"] == "notify.phone"
+    assert calls[0].data["message"] == "Test"
+    assert calls[0].data["title"] == "Alert title"
+    assert "data" not in calls[0].data
+
+
 async def test_notification_includes_ack_action(hass: HomeAssistant) -> None:
     """The firing notification carries an Acknowledge action button."""
     entry, calls = await _setup(hass)

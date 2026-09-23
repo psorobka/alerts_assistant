@@ -24,7 +24,7 @@
             "name": "Name",
             "entity_id": "Watched entity",
             "state": "Trigger state",
-            "notifiers": "Notify services",
+            "notifiers": "Notification targets",
             "repeat": "Repeat (minutes)",
             "can_acknowledge": "Can be acknowledged",
             "ack_from_notification": "Acknowledge button in notifications",
@@ -36,6 +36,7 @@
           },
           "data_description": {
             "state": "The alert fires while the watched entity is in this state.",
+            "notifiers": "Select one or more notify services or entities, or enter a target manually.",
             "repeat": "Minutes between notifications. Comma-separate to escalate, e.g. 15, 30, 60.",
             "skip_first": "Wait one interval before the first notification.",
             "ack_from_notification": "Add an Acknowledge button to mobile_app notifications (requires Can be acknowledged).",
@@ -50,7 +51,7 @@
             "name": "Name",
             "entity_id": "Watched entity",
             "state": "Trigger state",
-            "notifiers": "Notify services",
+            "notifiers": "Notification targets",
             "repeat": "Repeat (minutes)",
             "can_acknowledge": "Can be acknowledged",
             "ack_from_notification": "Acknowledge button in notifications",
@@ -62,6 +63,7 @@
           },
           "data_description": {
             "state": "The alert fires while the watched entity is in this state.",
+            "notifiers": "Select one or more notify services or entities, or enter a target manually.",
             "repeat": "Minutes between notifications. Comma-separate to escalate, e.g. 15, 30, 60.",
             "skip_first": "Wait one interval before the first notification.",
             "ack_from_notification": "Add an Acknowledge button to mobile_app notifications (requires Can be acknowledged).",
@@ -73,7 +75,7 @@
       },
       "error": {
         "invalid_repeat": "Enter one or more positive numbers of minutes, comma-separated.",
-        "no_notifiers": "Select at least one notify service."
+        "no_notifiers": "Select at least one notification target."
       }
     }
   },

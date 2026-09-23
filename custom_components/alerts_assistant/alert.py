@@ -225,8 +225,26 @@ class Alert(Entity):
             msg_payload[ATTR_DATA] = data
 
         for target in self._notifiers:
+            # Notify entities use the generic send_message entity service.
+            # Legacy notify services accept the full payload, including custom
+            # data and actionable notification buttons.
+            if self.hass.states.get(target) is not None:
+                entity_payload = {
+                    key: value
+                    for key, value in msg_payload.items()
+                    if key in (ATTR_MESSAGE, ATTR_TITLE)
+                }
+                await self.hass.services.async_call(
+                    NOTIFY_DOMAIN,
+                    "send_message",
+                    {"entity_id": target, **entity_payload},
+                    context=self._context,
+                )
+                continue
+
+            service = target.removeprefix(f"{NOTIFY_DOMAIN}.")
             await self.hass.services.async_call(
-                NOTIFY_DOMAIN, target, dict(msg_payload), context=self._context
+                NOTIFY_DOMAIN, service, dict(msg_payload), context=self._context
             )
 
     async def async_turn_on(self, **kwargs: Any) -> None:

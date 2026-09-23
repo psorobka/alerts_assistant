@@ -31,7 +31,7 @@ DEFAULT_CAN_ACK = True
 DEFAULT_SKIP_FIRST = False
 DEFAULT_ACK_ACTION = True
 
-# Notify is a legacy service domain; alerts call `notify.<service>`.
+# Notify targets may be legacy `notify.<service>` services or `notify.*` entities.
 NOTIFY_DOMAIN = "notify"
 
 # Actionable-notification acknowledgement (mobile_app). Each alert exposes an

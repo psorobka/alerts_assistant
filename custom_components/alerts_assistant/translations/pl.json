@@ -24,7 +24,7 @@
             "name": "Nazwa",
             "entity_id": "Obserwowana encja",
             "state": "Stan wyzwalający",
-            "notifiers": "Usługi powiadomień",
+            "notifiers": "Cele powiadomień",
             "repeat": "Powtarzanie (minuty)",
             "can_acknowledge": "Można potwierdzić",
             "ack_from_notification": "Przycisk potwierdzenia w powiadomieniach",
@@ -36,6 +36,7 @@
           },
           "data_description": {
             "state": "Alert jest aktywny, dopóki obserwowana encja jest w tym stanie.",
+            "notifiers": "Wybierz usługi lub encje notify albo wpisz cel ręcznie.",
             "repeat": "Minuty między powiadomieniami. Po przecinku dla eskalacji, np. 15, 30, 60.",
             "skip_first": "Odczekaj jeden interwał przed pierwszym powiadomieniem.",
             "ack_from_notification": "Dodaj przycisk potwierdzenia do powiadomień mobile_app (wymaga „Można potwierdzić”).",
@@ -50,7 +51,7 @@
             "name": "Nazwa",
             "entity_id": "Obserwowana encja",
             "state": "Stan wyzwalający",
-            "notifiers": "Usługi powiadomień",
+            "notifiers": "Cele powiadomień",
             "repeat": "Powtarzanie (minuty)",
             "can_acknowledge": "Można potwierdzić",
             "ack_from_notification": "Przycisk potwierdzenia w powiadomieniach",
@@ -62,6 +63,7 @@
           },
           "data_description": {
             "state": "Alert jest aktywny, dopóki obserwowana encja jest w tym stanie.",
+            "notifiers": "Wybierz usługi lub encje notify albo wpisz cel ręcznie.",
             "repeat": "Minuty między powiadomieniami. Po przecinku dla eskalacji, np. 15, 30, 60.",
             "skip_first": "Odczekaj jeden interwał przed pierwszym powiadomieniem.",
             "ack_from_notification": "Dodaj przycisk potwierdzenia do powiadomień mobile_app (wymaga „Można potwierdzić”).",
@@ -73,7 +75,7 @@
       },
       "error": {
         "invalid_repeat": "Podaj jedną lub więcej dodatnich liczb minut, oddzielonych przecinkami.",
-        "no_notifiers": "Wybierz co najmniej jedną usługę powiadomień."
+        "no_notifiers": "Wybierz co najmniej jeden cel powiadomień."
       }
     }
   },

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from types import MappingProxyType
 from typing import Any
 
-from homeassistant.config_entries import ConfigSubentryData
+from homeassistant.config_entries import ConfigSubentry
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -36,18 +37,20 @@ def alert_config(**overrides: Any) -> dict[str, Any]:
 
 def make_entry(*alerts: dict[str, Any]) -> MockConfigEntry:
     """Build a hub MockConfigEntry with one subentry per alert config."""
-    subentries = [
-        ConfigSubentryData(
-            data=config,
-            subentry_type=SUBENTRY_TYPE_ALERT,
-            title=config["name"],
-            unique_id=None,
-        )
-        for config in alerts
-    ]
-    return MockConfigEntry(
+    entry = MockConfigEntry(
         domain=DOMAIN,
         title="Alerts Assistant",
         unique_id=DOMAIN,
-        subentries_data=subentries,
     )
+    subentries = {
+        f"alert-{index}": ConfigSubentry(
+            subentry_id=f"alert-{index}",
+            subentry_type=SUBENTRY_TYPE_ALERT,
+            title=config["name"],
+            data=MappingProxyType(config),
+            unique_id=None,
+        )
+        for index, config in enumerate(alerts)
+    }
+    object.__setattr__(entry, "subentries", MappingProxyType(subentries))
+    return entry
