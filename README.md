@@ -152,3 +152,8 @@ Created with help from [Claude Code](https://claude.com/claude-code) and
 
 - Home Assistant **2025.6.0+** (config subentries with reconfigure support).
   Developed and tested against 2026.6.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
