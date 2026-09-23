@@ -1,5 +1,8 @@
 # Alerts Assistant
 
+[![CI](https://github.com/psorobka/alerts_assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/psorobka/alerts_assistant/actions/workflows/ci.yml)
+[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+
 A UI-configurable re-implementation of the Home Assistant built-in
 [`alert`](https://www.home-assistant.io/integrations/alert/) integration.
 
@@ -125,14 +128,25 @@ These act on `alerts_assistant.*` entities (like the built-in alert):
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r requirements_test.txt
-.venv/bin/pytest -q
+.venv/bin/pip install -r requirements_test.txt -r requirements_dev.txt
+.venv/bin/pytest -q --cov --cov-report=term-missing
+.venv/bin/ruff check .
+.venv/bin/ruff format .
 ```
 
 The test suite includes pseudo-integration tests that run a real Home Assistant
 core in-process (via `pytest-homeassistant-custom-component`) and cover the full
 firing / repeat / escalate / acknowledge / clear / re-arm matrix as well as the
 config and subentry flows.
+
+CI runs Ruff linting and formatting checks, the test suite with coverage, Hassfest
+manifest validation, and HACS validation. Dependabot checks GitHub Actions and
+Python dependencies weekly.
+
+## Credits
+
+Created with help from [Claude Code](https://claude.com/claude-code) and
+[ChatGPT](https://chatgpt.com/).
 
 ## Requirements
 

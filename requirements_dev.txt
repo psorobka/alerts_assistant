@@ -1,0 +1,2 @@
+# Keep Ruff pinned so local and CI lint/format results use the same rules.
+ruff==0.15.17

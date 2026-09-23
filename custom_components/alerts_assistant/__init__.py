@@ -79,8 +79,7 @@ async def _async_reconcile(
     for subentry_id in list(live):
         deleted = subentry_id not in desired
         changed = (
-            not deleted
-            and live[subentry_id].source_config != desired[subentry_id]
+            not deleted and live[subentry_id].source_config != desired[subentry_id]
         )
         if not (deleted or changed):
             continue

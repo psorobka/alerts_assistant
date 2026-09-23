@@ -8,3 +8,9 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "BLE"]
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
 known-first-party = ["custom_components.alerts_assistant"]
+
+[tool.coverage.run]
+source = ["custom_components/alerts_assistant"]
+
+[tool.coverage.report]
+show_missing = true

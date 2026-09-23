@@ -126,9 +126,7 @@ class Alert(Entity):
             return STATE_OFF if self._ack else STATE_ON
         return STATE_IDLE
 
-    async def watched_entity_change(
-        self, event: Event[EventStateChangedData]
-    ) -> None:
+    async def watched_entity_change(self, event: Event[EventStateChangedData]) -> None:
         """React to the watched entity changing state."""
         new_state = event.data["new_state"]
         if new_state is None:
@@ -269,9 +267,7 @@ class Alert(Entity):
 
 
 @callback
-def build_alert(
-    hass: HomeAssistant, unique_id: str, config: dict[str, Any]
-) -> Alert:
+def build_alert(hass: HomeAssistant, unique_id: str, config: dict[str, Any]) -> Alert:
     """Construct an :class:`Alert` from subentry config data."""
     from .const import (
         CONF_ACK_ACTION,

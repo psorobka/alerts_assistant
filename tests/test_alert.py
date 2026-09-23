@@ -156,9 +156,7 @@ async def test_rearms_after_clear(hass: HomeAssistant) -> None:
 
 
 async def test_custom_title_and_message(hass: HomeAssistant) -> None:
-    _, calls = await _setup(
-        hass, message="Door open!", title="Security"
-    )
+    _, calls = await _setup(hass, message="Door open!", title="Security")
 
     hass.states.async_set(WATCHED, STATE_ON)
     await hass.async_block_till_done()
@@ -199,9 +197,7 @@ async def test_multiple_notifiers_and_data(hass: HomeAssistant) -> None:
     calls1 = async_mock_service(hass, "notify", "n1")
     calls2 = async_mock_service(hass, "notify", "n2")
     hass.states.async_set(WATCHED, STATE_OFF)
-    entry = make_entry(
-        alert_config(notifiers=["n1", "n2"], data={"priority": "high"})
-    )
+    entry = make_entry(alert_config(notifiers=["n1", "n2"], data={"priority": "high"}))
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()

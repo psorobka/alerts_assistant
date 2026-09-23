@@ -209,9 +209,7 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
         schema = _alert_schema(options)
         if user_input is not None:
             schema = self.add_suggested_values_to_schema(schema, user_input)
-        return self.async_show_form(
-            step_id="user", data_schema=schema, errors=errors
-        )
+        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
@@ -246,9 +244,7 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
                 **subentry.data,
                 CONF_REPEAT: _repeat_to_text(subentry.data.get(CONF_REPEAT, "")),
             }
-        schema = self.add_suggested_values_to_schema(
-            _alert_schema(options), suggested
-        )
+        schema = self.add_suggested_values_to_schema(_alert_schema(options), suggested)
         return self.async_show_form(
             step_id="reconfigure", data_schema=schema, errors=errors
         )
