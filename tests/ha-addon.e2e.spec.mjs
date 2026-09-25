@@ -131,9 +131,6 @@ async function prepareHomeAssistant() {
     token,
   );
   expect(subentryFlow.type).toBe("create_entry");
-  await post("api/services/input_boolean/turn_on", {
-    entity_id: "input_boolean.e2e_watch",
-  }, token);
 
   const deadline = Date.now() + 20_000;
   while (Date.now() < deadline) {
@@ -163,14 +160,11 @@ homeassistant:
         - 172.16.0.0/12
       allow_bypass_login: true
     - type: homeassistant
-input_boolean:
-  e2e_watch:
-    name: E2E Watch
 template:
   - binary_sensor:
       - name: E2E Watch
         unique_id: e2e_watch
-        state: "{{ is_state('input_boolean.e2e_watch', 'on') }}"
+        state: "{{ true }}"
 lovelace:
   mode: yaml
 `);
