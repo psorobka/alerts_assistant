@@ -279,6 +279,17 @@ npx playwright install --with-deps chromium
 npm run test:ha
 ```
 
+On Windows, run these commands inside a WSL distro with Node.js 22 and Docker
+Desktop's WSL integration enabled. For example:
+
+```bash
+cd /mnt/c/Users/<your-user>/Documents/ChatGPT/alerts_assistant
+npm ci
+npx playwright install --with-deps chromium
+node --test tests/frontend-card.test.mjs
+npm run test:ha
+```
+
 The test suite includes pseudo-integration tests that run a real Home Assistant
 core in-process (via `pytest-homeassistant-custom-component`) and cover the full
 firing / repeat / escalate / acknowledge / clear / re-arm matrix as well as the

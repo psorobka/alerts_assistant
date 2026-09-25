@@ -16,6 +16,7 @@ from homeassistant.helpers.selector import (
 import pytest
 from pytest_homeassistant_custom_component.common import async_mock_service
 
+from custom_components.alerts_assistant.config_flow import _parse_repeat
 from custom_components.alerts_assistant.const import (
     CONF_ALERT_STATE,
     CONF_DEVICE_CLASS,
@@ -39,6 +40,18 @@ VALID_INPUT = {
     "skip_first": False,
 }
 TARGET_INPUT = {"target": ["binary_sensor.garage"]}
+
+
+@pytest.mark.parametrize("value", ["", " , "])
+def test_parse_repeat_rejects_empty_values(value: str) -> None:
+    with pytest.raises(ValueError, match="empty"):
+        _parse_repeat(value)
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "1, 0"])
+def test_parse_repeat_rejects_non_positive_values(value: str) -> None:
+    with pytest.raises(ValueError, match="not_positive"):
+        _parse_repeat(value)
 
 
 async def _start_alert_flow(hass: HomeAssistant, entry):
@@ -220,6 +233,43 @@ async def test_sensor_flow_uses_numeric_threshold_fields(hass: HomeAssistant) ->
     assert subentry.data[CONF_NUMERIC_THRESHOLD] == 20
     assert subentry.data[CONF_SENSOR_MODE] == "numeric"
     assert CONF_ALERT_STATE not in subentry.data
+
+
+async def test_numeric_flow_reports_invalid_threshold(
+    hass: HomeAssistant,
+) -> None:
+    """Invalid numeric inputs are shown as field-specific flow errors."""
+    async_mock_service(hass, "notify", "test")
+    entry = make_entry()
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    sensor = er.async_get(hass).async_get_or_create(
+        "sensor", DOMAIN, "battery", suggested_object_id="battery"
+    )
+    hass.states.async_set(sensor.entity_id, "80")
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_TYPE_ALERT), context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {"entity_domain": "sensor_numeric"}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {"target": [sensor.entity_id]}
+    )
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            **{key: value for key, value in VALID_INPUT.items() if key != "state"},
+            CONF_NUMERIC_COMPARATOR: "below",
+            CONF_NUMERIC_THRESHOLD: "nan",
+        },
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {
+        CONF_NUMERIC_THRESHOLD: "invalid_threshold",
+    }
 
 
 async def test_sensor_flow_suggests_text_and_saves_text_condition(

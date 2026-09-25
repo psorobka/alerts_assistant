@@ -43,6 +43,26 @@ async function post(pathname, body, token) {
   return payload;
 }
 
+async function waitForEntity(token, entityId) {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(`${baseUrl}/api/states`, {
+        headers: { authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(2_000),
+      });
+      if (response.ok) {
+        const states = await response.json();
+        if (states.some((state) => state.entity_id === entityId)) return;
+      }
+    } catch {
+      // Wait for the configured template entity to be created.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(`Home Assistant did not create ${entityId}`);
+}
+
 async function prepareHomeAssistant() {
   const status = await (await fetch(`${baseUrl}/api/onboarding`)).json();
   expect(status.every(({ done }) => !done)).toBe(true);
@@ -73,6 +93,7 @@ async function prepareHomeAssistant() {
     client_id: clientId,
     redirect_uri: `${baseUrl}/onboarding.html?auth_callback=1`,
   }, token);
+  await waitForEntity(token, "binary_sensor.e2e_watch");
 
   let flow = await post("api/config/config_entries/flow", { handler: "alerts_assistant" }, token);
   flow = await post(`api/config/config_entries/flow/${flow.flow_id}`, {}, token);
@@ -108,7 +129,7 @@ async function prepareHomeAssistant() {
   );
   expect(subentryFlow.type).toBe("create_entry");
   await post("api/services/input_boolean/turn_on", {
-    entity_id: "binary_sensor.e2e_watch",
+    entity_id: "input_boolean.e2e_watch",
   }, token);
 
   const deadline = Date.now() + 20_000;
@@ -139,11 +160,14 @@ homeassistant:
         - 172.16.0.0/12
       allow_bypass_login: true
     - type: homeassistant
+input_boolean:
+  e2e_watch:
+    name: E2E Watch
 template:
   - binary_sensor:
-      - name: Czujnik E2E
+      - name: E2E Watch
         unique_id: e2e_watch
-        state: "{{ is_state('sun.sun', 'above_horizon') }}"
+        state: "{{ is_state('input_boolean.e2e_watch', 'on') }}"
 lovelace:
   mode: yaml
 `);
@@ -167,9 +191,16 @@ views:
 
   await waitForHomeAssistant();
   await prepareHomeAssistant();
-});
+}, 240_000);
 
 test.afterAll(async () => {
+  if (!alertEntityId) {
+    try {
+      execFileSync("docker", ["logs", containerName], { stdio: "inherit" });
+    } catch {
+      // The container may not have started or may already have exited.
+    }
+  }
   try {
     execFileSync("docker", ["exec", "--user", "0", containerName, "chmod", "-R", "a+rwX", "/config"], { stdio: "ignore" });
   } catch {
