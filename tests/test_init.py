@@ -24,6 +24,7 @@ async def test_setup_registers_and_loads_frontend_card(hass: HomeAssistant) -> N
     http.async_register_static_paths = AsyncMock()
     with (
         patch.object(hass, "http", http),
+        patch.object(hass.config, "components", {"frontend"}),
         patch(
             "custom_components.alerts_assistant.add_extra_js_url"
         ) as add_extra_js_url,

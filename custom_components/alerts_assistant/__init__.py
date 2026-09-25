@@ -51,7 +51,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up frontend card, entity component and acknowledge services."""
     # HTTP is absent in Home Assistant's isolated component test harnesses.
     # In a normal HA instance this serves and automatically loads the card.
-    if hass.http is not None:
+    if hass.http is not None and "frontend" in hass.config.components:
         await hass.http.async_register_static_paths(
             [
                 StaticPathConfig(
