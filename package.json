@@ -1,0 +1,10 @@
+{
+  "name": "alerts-assistant-card-tests",
+  "private": true,
+  "scripts": {
+    "test:ha": "playwright test --config playwright.ha.config.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}

@@ -18,11 +18,10 @@
         "reconfigure": "Edit alert"
       },
       "step": {
-        "user": {
-          "title": "Add alert",
+        "user_alert": {
+          "title": "Configure alert",
           "data": {
             "name": "Name",
-            "entity_id": "Watched entity",
             "state": "Trigger state",
             "notifiers": "Notification targets",
             "repeat": "Repeat (minutes)",
@@ -32,24 +31,30 @@
             "title": "Notification title",
             "message": "Notification message",
             "done_message": "Done message",
-            "data": "Extra notification data"
+            "data": "Extra notification data",
+            "numeric_comparator": "Condition",
+            "numeric_threshold": "Threshold",
+            "text_state": "Text value"
           },
           "data_description": {
-            "state": "The alert fires while the watched entity is in this state.",
+            "state": "The alert fires while the watched entity remains in this state.",
             "notifiers": "Select one or more notify services or entities, or enter a target manually.",
             "repeat": "Minutes between notifications. Comma-separate to escalate, e.g. 15, 30, 60.",
             "skip_first": "Wait one interval before the first notification.",
             "ack_from_notification": "Add an Acknowledge button to mobile_app notifications (requires Can be acknowledged).",
             "message": "Optional template. Defaults to the alert name.",
             "done_message": "Optional template sent when the alert clears.",
-            "data": "Optional key/values passed to the notify service (e.g. priority, channel)."
-          }
+            "data": "Optional key/values passed to the notify service (e.g. priority, channel).",
+            "numeric_comparator": "Fire when the sensor value is below or above the threshold.",
+            "numeric_threshold": "The alert stays active while the condition is true.",
+            "text_state": "The alert is active while the sensor state exactly matches this value."
+          },
+          "description": "Watching entity: {entity_id}"
         },
-        "reconfigure": {
+        "reconfigure_alert": {
           "title": "Edit alert",
           "data": {
             "name": "Name",
-            "entity_id": "Watched entity",
             "state": "Trigger state",
             "notifiers": "Notification targets",
             "repeat": "Repeat (minutes)",
@@ -59,24 +64,86 @@
             "title": "Notification title",
             "message": "Notification message",
             "done_message": "Done message",
-            "data": "Extra notification data"
+            "data": "Extra notification data",
+            "numeric_comparator": "Condition",
+            "numeric_threshold": "Threshold",
+            "text_state": "Text value"
           },
           "data_description": {
-            "state": "The alert fires while the watched entity is in this state.",
+            "state": "The alert fires while the watched entity remains in this state.",
             "notifiers": "Select one or more notify services or entities, or enter a target manually.",
             "repeat": "Minutes between notifications. Comma-separate to escalate, e.g. 15, 30, 60.",
             "skip_first": "Wait one interval before the first notification.",
             "ack_from_notification": "Add an Acknowledge button to mobile_app notifications (requires Can be acknowledged).",
             "message": "Optional template. Defaults to the alert name.",
             "done_message": "Optional template sent when the alert clears.",
-            "data": "Optional key/values passed to the notify service (e.g. priority, channel)."
+            "data": "Optional key/values passed to the notify service (e.g. priority, channel).",
+            "numeric_comparator": "Fire when the sensor value is below or above the threshold.",
+            "numeric_threshold": "The alert stays active while the condition is true.",
+            "text_state": "The alert is active while the sensor state exactly matches this value."
+          },
+          "description": "Watching entity: {entity_id}"
+        },
+        "user": {
+          "title": "Choose entity type",
+          "data": {
+            "entity_domain": "Entity type"
+          },
+          "data_description": {
+            "entity_domain": "Choose a binary sensor, numeric sensor, or text sensor. Sensors with an unclear type may appear in both lists."
+          }
+        },
+        "reconfigure": {
+          "title": "Choose entity type",
+          "data": {
+            "entity_domain": "Entity type"
+          },
+          "data_description": {
+            "entity_domain": "Choose a binary sensor, numeric sensor, or text sensor. Sensors with an unclear type may appear in both lists."
+          }
+        },
+        "user_target": {
+          "title": "Choose what to monitor",
+          "data": {
+            "target": "Entities",
+            "labels": "Entity labels",
+            "device_class": "Device class"
+          },
+          "data_description": {
+            "target": "Choose one or more matching entities to monitor.",
+            "labels": "Monitor every matching entity with these labels, including entities labeled later. Each entity gets its own independent alert.",
+            "device_class": "Optionally limit selected entities and label members to this device class."
+          }
+        },
+        "reconfigure_target": {
+          "title": "Choose what to monitor",
+          "data": {
+            "target": "Entities",
+            "labels": "Entity labels",
+            "device_class": "Device class"
+          },
+          "data_description": {
+            "target": "Choose one or more matching entities to monitor.",
+            "labels": "Monitor every matching entity with these labels, including entities labeled later. Each entity gets its own independent alert.",
+            "device_class": "Optionally limit selected entities and label members to this device class."
           }
         }
       },
       "error": {
+        "no_entities": "Select at least one entity or label.",
         "invalid_repeat": "Enter one or more positive numbers of minutes, comma-separated.",
-        "no_notifiers": "Select at least one notification target."
+        "no_notifiers": "Select at least one notification target.",
+        "invalid_threshold": "Enter a valid numeric threshold.",
+        "invalid_comparator": "Choose below or above.",
+        "invalid_text_state": "Enter a text value.",
+        "invalid_sensor_mode": "Choose number or text."
       }
+    }
+  },
+  "issues": {
+    "no_entities": {
+      "title": "Alert has no active entities",
+      "description": "Alert \"{alert_name}\" is not monitoring all intended entities. Missing targets: {missing_targets}. Edit the alert and choose available entities or labels."
     }
   },
   "services": {
@@ -92,5 +159,8 @@
       "name": "Toggle acknowledgement",
       "description": "Toggles the acknowledged state of the alert."
     }
+  },
+  "common": {
+    "action_acknowledge": "Acknowledge"
   }
 }

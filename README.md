@@ -13,7 +13,15 @@ UI, with no restart.
 
 ## Features
 
-- Watch any entity for a configurable trigger state.
+- Watch one or more entities for a configurable trigger state. Every selected entity
+  gets an independent alert, acknowledgement, and repeat schedule.
+- Watch entities by Home Assistant label; entities added to or removed from a label
+  are picked up automatically.
+- Choose between binary, numeric, and text sensors. Numeric sensors support above / below
+  thresholds; text sensors match an exact state.
+- Filter selected entities and label members by device class, such as `moisture`.
+- Get a translated Home Assistant repair warning if a selected entity or label is
+  removed, or if the alert has no active entities.
 - Repeat notifications on a fixed or escalating schedule (e.g. `15, 30, 60`).
 - Acknowledge to silence (`turn_off`), re-arm (`turn_on`), or `toggle`.
 - **Acknowledge straight from the notification** — an action button on mobile_app
@@ -21,6 +29,7 @@ UI, with no restart.
 - Optional "done" message when the alert clears.
 - Optional notification title / message templates and extra `data`.
 - Notify via `notify.*` services or entities, selectable by friendly name or entered manually.
+- Built-in Lovelace card with active alert grouping by room, elapsed time, and per-alert acknowledgement.
 - One hub, many alerts: add/edit/delete each alert independently from the UI —
   editing one alert never disturbs the others.
 
@@ -28,10 +37,40 @@ Each alert is exposed as an `alerts_assistant.*` entity.
 
 ## How it works
 
-Each alert watches one entity. While that entity sits in the configured **trigger
-state**, the alert is "firing" and sends a notification, then keeps re-sending on
-the **repeat** schedule until you acknowledge it or the watched entity leaves the
-trigger state.
+Each alert watches one or more entities. Each watched entity gets its own alert
+entity and independent lifecycle. While the configured trigger condition is
+true, its alert is "firing" and sends a notification, then keeps re-sending on
+the **repeat** schedule until you acknowledge it or the condition clears. You
+can select entities directly or use one or more Home Assistant labels as a
+dynamic set. The first setup step asks whether you are monitoring a
+`binary_sensor`, numeric `sensor`, or text `sensor`; the next list is filtered by
+sensor metadata (`device_class`, `state_class`, and unit) and the current value.
+Sensors with no reliable type information appear in both sensor lists and are
+marked as unclear, so a numeric-looking text value such as `123` can still be
+selected as text.
+The entity/label picker also has an optional **Device class** filter, such as
+`moisture`; it narrows both manually selected entities and label members.
+
+An alert can watch several manually selected entities, one or more labels, or both.
+Each matching entity gets a separate `alerts_assistant.*` entity and its own alert
+lifecycle. Templates receive the triggering entity's `entity_id`, `entity_name`, and
+`area`, so a grouped alert can mention the room that needs attention.
+
+If a manually selected entity or label is deleted, the affected target is removed
+from the active configuration and a yellow Home Assistant **Repair** warning asks
+you to review the alert. Other entities in the group keep running. The warning also
+appears when no entities currently match the alert, and clears after you edit the
+alert and choose available targets. If you submit the target step without choosing
+an entity or label, the form shows a localized validation message instead of saving
+an empty alert.
+
+For a `binary_sensor`, choose the trigger state, such as `on` for a wet leak
+detector. For a numeric `sensor`, choose **below** or **above** and set a
+threshold, for example `battery < 20`. The alert stays active while that
+comparison is true. `unknown` and `unavailable` readings do not clear an active
+numeric alert. For text sensors, provide the exact value to match, such as
+`open`. If a numeric sensor later reports a text value, it no longer matches the
+numeric condition and the alert clears.
 
 ### Lifecycle
 
@@ -60,6 +99,29 @@ The `alerts_assistant.*` entity reports:
 If a notify service fails (e.g. a notifier is temporarily down), the error is logged
 and the repeat loop keeps going — one failure never stops the alert.
 
+While an alert is active, its entity exposes `triggered_at` (ISO timestamp),
+`watched_entity`, `area` when assigned, and `acknowledged`. The start time stays the
+same after acknowledgement and disappears when the alert clears. Add the
+`alerts_assistant.*` entities to an **Entities** dashboard card to see each sensor's
+current status; open an entity's more-info panel to inspect its start time and area.
+
+### Alerts dashboard card
+
+Alerts Assistant registers its Lovelace card automatically; no separate HACS
+frontend repository or resource URL is needed. In a dashboard, choose **Edit
+dashboard → Add card**, search for **Alerts Assistant**, and add it. The card finds
+all `alerts_assistant.*` entities automatically, groups active alerts by area,
+shows how long each has been active, and lets you acknowledge or re-arm each alert
+individually. Alerts without an area appear under **Other**. Cleared alerts are
+hidden by default; optional YAML settings are:
+
+```yaml
+type: custom:alerts-assistant-card
+title: Home alerts
+show_cleared: false
+group_by_area: true
+```
+
 ### Acknowledging from the notification
 
 When *Acknowledge button in notifications* is on (and the alert can be acknowledged),
@@ -72,6 +134,7 @@ the app. The action is added to the notification's `data.actions`, merged with a
 extra data you configured. Legacy `notify.mobile_app_*` services are required for
 action buttons. Modern notify entities receive title and message through
 `notify.send_message`; they do not support custom data or action buttons.
+The action label follows Home Assistant's configured language (Polish or English).
 
 ## Installation (HACS)
 
@@ -83,18 +146,24 @@ Or copy `custom_components/alerts_assistant` into your `config/custom_components
 
 ## Configuration
 
-1. **Settings → Devices & Services → Add Integration → Alerts Assistant** (creates
-   the hub; only one is allowed).
-2. On the integration card, use **Add** to create an alert.
-3. Edit or delete alerts from the same card at any time — no restart needed.
+1. **Settings → Devices & Services → Add Integration → Alerts Assistant** creates
+   the hub; only one is allowed.
+2. On the integration card, use **Add** to create an alert and choose whether to
+   monitor a binary sensor, numeric sensor, or text sensor.
+3. Select one or more entities, labels, or both. Optionally filter them by device
+   class, then configure the trigger, notification targets, and repeat behavior.
+4. Edit or delete alerts from the same card at any time — no restart needed.
 
 ### Alert options
 
 | Option                   | Required | Description                                                                 |
 | ------------------------ | -------- | --------------------------------------------------------------------------- |
 | **Name**                 | yes      | Friendly name; also derives the `alerts_assistant.<name>` entity id.        |
-| **Watched entity**       | yes      | The entity whose state is monitored.                                        |
-| **Trigger state**        | yes      | The state that makes the alert fire (default `on`).                         |
+| **Entity type**          | yes      | Binary sensor, numeric sensor, or text sensor. Numeric sensors use a threshold; text sensors match an exact value. |
+| **Entities**             | yes*     | Select one or more entities to monitor. Each gets an independent alert.       |
+| **Entity labels**        | no       | Optionally monitor every entity with the selected labels; membership updates automatically, including future members. |
+| **Device class**         | no       | Optionally filter manually selected entities and label members by class.      |
+| **Trigger condition**    | yes      | For `binary_sensor`, the state that fires the alert (default `on`). For numeric `sensor`, use a below/above comparison and threshold. Text sensors match an exact value. |
 | **Notification targets** | yes      | One or more `notify.*` services or entities, chosen from the list or entered manually. |
 | **Repeat (minutes)**     | yes      | Comma-separated minutes between notifications; escalates then holds the last.|
 | **Can be acknowledged**  | —        | If off, the alert cannot be silenced with `turn_off` (default on).          |
@@ -104,6 +173,17 @@ Or copy `custom_components/alerts_assistant` into your `config/custom_components
 | **Notification message** | no       | Optional template; defaults to the alert name.                              |
 | **Done message**         | no       | Optional template sent once when the alert clears.                          |
 | **Extra notification data** | no    | Optional key/values forwarded to the notify service (e.g. `priority`).      |
+
+*Select at least one entity or label. If an entity or label is deleted later, a
+yellow Repair warning identifies the alert that needs review. Removing one member
+from a group leaves its other alert entities running.
+
+For multi-entity alerts, each notification template receives `entity_id`,
+`entity_name`, and `area` for the sensor that triggered that alert. For example:
+
+```jinja2
+Wykryto zalanie: {{ area or entity_name }}
+```
 
 ## Services
 
@@ -124,6 +204,60 @@ These act on `alerts_assistant.*` entities (like the built-in alert):
 - Notify targets include legacy `notify.<service>` services and modern notify
   entities, selected by friendly name or entered manually.
 
+## Local testing with Home Assistant
+
+You can run a local Home Assistant development instance with Docker and mount this
+checkout as its `Alerts Assistant` integration. Run the commands below from the
+repository root.
+
+### Start (PowerShell)
+
+```powershell
+New-Item -ItemType Directory -Force .ha-dev/config | Out-Null
+Set-Content .ha-dev/config/configuration.yaml "default_config:`n"
+
+docker run --detach --name alerts-assistant-ha --restart unless-stopped `
+  --publish 8123:8123 `
+  --volume "${PWD}\.ha-dev\config:/config" `
+  --volume "${PWD}\custom_components\alerts_assistant:/config/custom_components/alerts_assistant:ro" `
+  homeassistant/home-assistant:stable
+```
+
+Run `docker run` only the first time. If the `alerts-assistant-ha` container
+already exists, use `docker start alerts-assistant-ha` instead.
+
+Open [http://localhost:8123](http://localhost:8123) and finish Home Assistant's
+first-run setup. Then go to **Settings → Devices & Services → Add Integration**
+and select **Alerts Assistant**. The integration files are mounted from this
+checkout; restart Home Assistant after changing Python code:
+
+```powershell
+docker restart alerts-assistant-ha
+```
+
+To try an alert without connecting a phone or external service, create an
+`input_boolean` helper in Home Assistant, then add an alert that watches it,
+triggers on `on`, repeats every `1` minute, and targets
+`notify.persistent_notification`. Turn the helper on to see the notification in
+Home Assistant; turn it off to clear the alert.
+
+The HA configuration and onboarding data are stored in `.ha-dev/config/` (which
+is git-ignored), so they survive container restarts and recreations. Manage the
+container with:
+
+```powershell
+docker stop alerts-assistant-ha
+docker start alerts-assistant-ha
+docker logs --follow alerts-assistant-ha
+```
+
+To remove only the container while keeping its configuration, run
+`docker rm --force alerts-assistant-ha`, then repeat the start commands above.
+
+The integration includes English and Polish UI translations in
+`custom_components/alerts_assistant/translations/`. Home Assistant uses the
+language selected in your user profile.
+
 ## Development
 
 ```bash
@@ -132,6 +266,17 @@ python3 -m venv .venv
 .venv/bin/pytest -q --cov --cov-report=term-missing
 .venv/bin/ruff check .
 .venv/bin/ruff format .
+```
+
+The add-on also has a Chromium end-to-end test. It starts a temporary Home
+Assistant container with this checkout mounted as the integration, creates an
+alert through the integration flow, and verifies the real Lovelace card against
+HA's state and services. Install Node.js 22 and Docker, then run:
+
+```bash
+npm ci
+npx playwright install --with-deps chromium
+npm run test:ha
 ```
 
 The test suite includes pseudo-integration tests that run a real Home Assistant

@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from unittest.mock import AsyncMock
 
 from homeassistant.const import STATE_IDLE, STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
+import pytest
 from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
     async_mock_service,
@@ -14,6 +18,11 @@ from pytest_homeassistant_custom_component.common import (
 
 from custom_components.alerts_assistant.const import (
     ACK_ACTION_PREFIX,
+    CONF_NUMERIC_COMPARATOR,
+    CONF_NUMERIC_THRESHOLD,
+    CONF_SENSOR_MODE,
+    CONF_TEXT_STATE,
+    DOMAIN,
     EVENT_MOBILE_APP_NOTIFICATION_ACTION,
 )
 
@@ -54,6 +63,162 @@ async def test_fires_and_notifies(hass: HomeAssistant) -> None:
     assert hass.states.get(ENTITY_ID).state == STATE_ON
     assert len(calls) == 1
     assert calls[0].data["message"] == "Test"
+
+
+@pytest.mark.parametrize(
+    ("comparator", "initial", "trigger", "cleared"),
+    [("below", "25", "19.9", "20"), ("above", "15", "20.1", "20")],
+)
+async def test_numeric_sensor_threshold(hass, comparator, initial, trigger, cleared):
+    """Numeric alerts fire on strict threshold crossings and clear afterward."""
+    calls = async_mock_service(hass, "notify", "test")
+    hass.states.async_set(WATCHED, initial)
+    entry = make_entry(
+        alert_config(
+            **{
+                CONF_NUMERIC_COMPARATOR: comparator,
+                CONF_NUMERIC_THRESHOLD: 20,
+            }
+        )
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == STATE_IDLE
+
+    hass.states.async_set(WATCHED, trigger)
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == STATE_ON
+    assert len(calls) == 1
+
+    hass.states.async_set(WATCHED, "unavailable")
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == STATE_ON
+
+    hass.states.async_set(WATCHED, cleared)
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == STATE_IDLE
+
+
+async def test_text_sensor_value_fires_until_value_changes(hass: HomeAssistant) -> None:
+    """Text sensors match exact values and ignore temporary unavailable states."""
+    calls = async_mock_service(hass, "notify", "test")
+    hass.states.async_set(WATCHED, "closed")
+    entry = make_entry(
+        alert_config(
+            **{CONF_SENSOR_MODE: "text", CONF_TEXT_STATE: "open"},
+        )
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == STATE_IDLE
+
+    hass.states.async_set(WATCHED, "open")
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == STATE_ON
+    assert len(calls) == 1
+
+    hass.states.async_set(WATCHED, "unavailable")
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == STATE_ON
+
+    hass.states.async_set(WATCHED, "closed")
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == STATE_IDLE
+
+
+async def test_numeric_alert_clears_when_sensor_reports_text(
+    hass: HomeAssistant,
+) -> None:
+    """A nonnumeric state does not satisfy a numeric comparison."""
+    await _setup(
+        hass,
+        **{
+            CONF_NUMERIC_COMPARATOR: "below",
+            CONF_NUMERIC_THRESHOLD: 20,
+        },
+    )
+    hass.states.async_set(WATCHED, "10")
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == STATE_ON
+
+    hass.states.async_set(WATCHED, "charging")
+    await hass.async_block_till_done()
+    assert hass.states.get(ENTITY_ID).state == STATE_IDLE
+
+
+async def test_multi_entity_alerts_run_and_acknowledge_independently(
+    hass: HomeAssistant,
+) -> None:
+    """Every entity selected in one alert has its own ack and repeat lifecycle."""
+    calls = async_mock_service(hass, "notify", "test")
+    bathroom = ar.async_get(hass).async_create("Bathroom")
+    entity_registry = er.async_get(hass)
+    bathroom_entity = entity_registry.async_get_or_create(
+        "binary_sensor",
+        "test_platform",
+        "leak_bathroom",
+        suggested_object_id="leak_bathroom",
+    )
+    kitchen_entity = entity_registry.async_get_or_create(
+        "binary_sensor",
+        "test_platform",
+        "leak_kitchen",
+        suggested_object_id="leak_kitchen",
+    )
+    entity_registry.async_update_entity(bathroom_entity.entity_id, area_id=bathroom.id)
+    hass.states.async_set(
+        bathroom_entity.entity_id, "off", {"friendly_name": "Bathroom leak"}
+    )
+    hass.states.async_set(
+        kitchen_entity.entity_id, "off", {"friendly_name": "Kitchen leak"}
+    )
+    entry = make_entry(
+        alert_config(
+            entity_id=bathroom_entity.entity_id,
+            entity_ids=[bathroom_entity.entity_id, kitchen_entity.entity_id],
+            message="{{ area }}: {{ entity_name }} ({{ entity_id }})",
+        )
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    bathroom_alert, kitchen_alert = entry.runtime_data["alert-0"]
+    hass.states.async_set(bathroom_entity.entity_id, "on")
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+    assert (
+        calls[0].data["message"]
+        == f"Bathroom: Bathroom leak ({bathroom_entity.entity_id})"
+    )
+    assert hass.states.get(bathroom_alert.entity_id).state == STATE_ON
+    assert hass.states.get(kitchen_alert.entity_id).state == STATE_IDLE
+    triggered_at = hass.states.get(bathroom_alert.entity_id).attributes["triggered_at"]
+    assert hass.states.get(bathroom_alert.entity_id).attributes["area"] == "Bathroom"
+
+    await hass.services.async_call(
+        DOMAIN,
+        "turn_off",
+        {"entity_id": bathroom_alert.entity_id},
+        blocking=True,
+    )
+    hass.states.async_set(kitchen_entity.entity_id, "on")
+    await hass.async_block_till_done()
+    assert len(calls) == 2
+    assert hass.states.get(bathroom_alert.entity_id).state == STATE_OFF
+    assert (
+        hass.states.get(bathroom_alert.entity_id).attributes["triggered_at"]
+        == triggered_at
+    )
+    assert hass.states.get(bathroom_alert.entity_id).attributes["acknowledged"]
+    assert hass.states.get(kitchen_alert.entity_id).state == STATE_ON
+
+    hass.states.async_set(bathroom_entity.entity_id, "off")
+    await hass.async_block_till_done()
+    assert hass.states.get(bathroom_alert.entity_id).state == STATE_IDLE
+    assert "triggered_at" not in hass.states.get(bathroom_alert.entity_id).attributes
 
 
 async def test_repeats_after_interval(hass: HomeAssistant) -> None:
@@ -262,6 +427,29 @@ async def test_notification_includes_ack_action(hass: HomeAssistant) -> None:
     assert calls[0].data["data"]["actions"] == [
         {"action": f"{ACK_ACTION_PREFIX}{subentry_id}", "title": "Acknowledge"}
     ]
+
+
+@pytest.mark.parametrize(
+    ("language", "title"), [("en", "Acknowledge"), ("pl", "Potwierdź")]
+)
+async def test_notification_ack_button_uses_home_assistant_language(
+    hass: HomeAssistant, monkeypatch, language: str, title: str
+) -> None:
+    """The push action label follows the configured HA UI language."""
+    hass.config.language = language
+    translation_key = f"component.{DOMAIN}.common.action_acknowledge"
+    monkeypatch.setattr(
+        "custom_components.alerts_assistant.alert.async_get_translations",
+        AsyncMock(return_value={translation_key: title}),
+    )
+    entry, calls = await _setup(hass)
+
+    hass.states.async_set(WATCHED, STATE_ON)
+    await hass.async_block_till_done()
+
+    assert calls[0].data["data"]["actions"][0]["title"] == title
+    assert calls[0].data["data"]["actions"][0]["action"].startswith(ACK_ACTION_PREFIX)
+    await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_notification_action_acknowledges(hass: HomeAssistant) -> None:

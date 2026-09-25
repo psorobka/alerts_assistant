@@ -18,11 +18,10 @@
         "reconfigure": "Edytuj alert"
       },
       "step": {
-        "user": {
-          "title": "Dodaj alert",
+        "user_alert": {
+          "title": "Skonfiguruj alert",
           "data": {
             "name": "Nazwa",
-            "entity_id": "Obserwowana encja",
             "state": "Stan wyzwalający",
             "notifiers": "Cele powiadomień",
             "repeat": "Powtarzanie (minuty)",
@@ -32,24 +31,30 @@
             "title": "Tytuł powiadomienia",
             "message": "Treść powiadomienia",
             "done_message": "Wiadomość po ustąpieniu",
-            "data": "Dodatkowe dane powiadomienia"
+            "data": "Dodatkowe dane powiadomienia",
+            "numeric_comparator": "Warunek",
+            "numeric_threshold": "Próg",
+            "text_state": "Wartość tekstowa"
           },
           "data_description": {
-            "state": "Alert jest aktywny, dopóki obserwowana encja jest w tym stanie.",
+            "state": "Alert jest aktywny, dopóki obserwowana encja pozostaje w wybranym stanie.",
             "notifiers": "Wybierz usługi lub encje notify albo wpisz cel ręcznie.",
             "repeat": "Minuty między powiadomieniami. Po przecinku dla eskalacji, np. 15, 30, 60.",
             "skip_first": "Odczekaj jeden interwał przed pierwszym powiadomieniem.",
             "ack_from_notification": "Dodaj przycisk potwierdzenia do powiadomień mobile_app (wymaga „Można potwierdzić”).",
             "message": "Opcjonalny szablon. Domyślnie nazwa alertu.",
             "done_message": "Opcjonalny szablon wysyłany po ustąpieniu alertu.",
-            "data": "Opcjonalne pary klucz/wartość przekazywane do usługi notify (np. priority, channel)."
-          }
+            "data": "Opcjonalne pary klucz/wartość przekazywane do usługi notify (np. priority, channel).",
+            "numeric_comparator": "Uruchom alert, gdy wartość sensora spadnie poniżej lub wzrośnie powyżej progu.",
+            "numeric_threshold": "Alert pozostaje aktywny, dopóki warunek jest spełniony.",
+            "text_state": "Alert jest aktywny, gdy stan sensora jest dokładnie taki jak podana wartość."
+          },
+          "description": "Obserwowana encja: {entity_id}"
         },
-        "reconfigure": {
+        "reconfigure_alert": {
           "title": "Edytuj alert",
           "data": {
             "name": "Nazwa",
-            "entity_id": "Obserwowana encja",
             "state": "Stan wyzwalający",
             "notifiers": "Cele powiadomień",
             "repeat": "Powtarzanie (minuty)",
@@ -59,24 +64,86 @@
             "title": "Tytuł powiadomienia",
             "message": "Treść powiadomienia",
             "done_message": "Wiadomość po ustąpieniu",
-            "data": "Dodatkowe dane powiadomienia"
+            "data": "Dodatkowe dane powiadomienia",
+            "numeric_comparator": "Warunek",
+            "numeric_threshold": "Próg",
+            "text_state": "Wartość tekstowa"
           },
           "data_description": {
-            "state": "Alert jest aktywny, dopóki obserwowana encja jest w tym stanie.",
+            "state": "Alert jest aktywny, dopóki obserwowana encja pozostaje w wybranym stanie.",
             "notifiers": "Wybierz usługi lub encje notify albo wpisz cel ręcznie.",
             "repeat": "Minuty między powiadomieniami. Po przecinku dla eskalacji, np. 15, 30, 60.",
             "skip_first": "Odczekaj jeden interwał przed pierwszym powiadomieniem.",
             "ack_from_notification": "Dodaj przycisk potwierdzenia do powiadomień mobile_app (wymaga „Można potwierdzić”).",
             "message": "Opcjonalny szablon. Domyślnie nazwa alertu.",
             "done_message": "Opcjonalny szablon wysyłany po ustąpieniu alertu.",
-            "data": "Opcjonalne pary klucz/wartość przekazywane do usługi notify (np. priority, channel)."
+            "data": "Opcjonalne pary klucz/wartość przekazywane do usługi notify (np. priority, channel).",
+            "numeric_comparator": "Uruchom alert, gdy wartość sensora spadnie poniżej lub wzrośnie powyżej progu.",
+            "numeric_threshold": "Alert pozostaje aktywny, dopóki warunek jest spełniony.",
+            "text_state": "Alert jest aktywny, gdy stan sensora jest dokładnie taki jak podana wartość."
+          },
+          "description": "Obserwowana encja: {entity_id}"
+        },
+        "user": {
+          "title": "Wybierz typ encji",
+          "data": {
+            "entity_domain": "Typ encji"
+          },
+          "data_description": {
+            "entity_domain": "Wybierz czujnik binarny, liczbowy albo tekstowy. Sensory o niejednoznacznym typie mogą pojawić się na obu listach."
+          }
+        },
+        "reconfigure": {
+          "title": "Wybierz typ encji",
+          "data": {
+            "entity_domain": "Typ encji"
+          },
+          "data_description": {
+            "entity_domain": "Wybierz czujnik binarny, liczbowy albo tekstowy. Sensory o niejednoznacznym typie mogą pojawić się na obu listach."
+          }
+        },
+        "user_target": {
+          "title": "Wybierz, co obserwować",
+          "data": {
+            "target": "Encje",
+            "labels": "Etykiety encji",
+            "device_class": "Klasa urządzenia"
+          },
+          "data_description": {
+            "target": "Wybierz jedną lub więcej pasujących encji do obserwowania.",
+            "labels": "Obserwuj każdą pasującą encję z tymi etykietami, także oznaczoną później. Każda encja otrzyma niezależny alert.",
+            "device_class": "Opcjonalnie ogranicz wybrane encje i członków etykiet do tej klasy."
+          }
+        },
+        "reconfigure_target": {
+          "title": "Wybierz, co obserwować",
+          "data": {
+            "target": "Encje",
+            "labels": "Etykiety encji",
+            "device_class": "Klasa urządzenia"
+          },
+          "data_description": {
+            "target": "Wybierz jedną lub więcej pasujących encji do obserwowania.",
+            "labels": "Obserwuj każdą pasującą encję z tymi etykietami, także oznaczoną później. Każda encja otrzyma niezależny alert.",
+            "device_class": "Opcjonalnie ogranicz wybrane encje i członków etykiet do tej klasy."
           }
         }
       },
       "error": {
+        "no_entities": "Wybierz co najmniej jedną encję lub etykietę.",
         "invalid_repeat": "Podaj jedną lub więcej dodatnich liczb minut, oddzielonych przecinkami.",
-        "no_notifiers": "Wybierz co najmniej jeden cel powiadomień."
+        "no_notifiers": "Wybierz co najmniej jeden cel powiadomień.",
+        "invalid_threshold": "Podaj prawidłowy próg liczbowy.",
+        "invalid_comparator": "Wybierz poniżej lub powyżej.",
+        "invalid_text_state": "Podaj wartość tekstową.",
+        "invalid_sensor_mode": "Wybierz liczbę albo tekst."
       }
+    }
+  },
+  "issues": {
+    "no_entities": {
+      "title": "Alert nie ma aktywnych encji",
+      "description": "Alert „{alert_name}” nie obserwuje wszystkich wybranych celów. Brakujące cele: {missing_targets}. Edytuj alert i wybierz dostępne encje lub etykiety."
     }
   },
   "services": {
@@ -92,5 +159,8 @@
       "name": "Przełącz potwierdzenie",
       "description": "Przełącza stan potwierdzenia alertu."
     }
+  },
+  "common": {
+    "action_acknowledge": "Potwierdź"
   }
 }
