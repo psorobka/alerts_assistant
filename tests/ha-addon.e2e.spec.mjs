@@ -4,9 +4,8 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { expect, test } from "@playwright/test";
 
-const port = 18123;
-const baseUrl = `http://127.0.0.1:${port}`;
 const containerName = `alerts-assistant-e2e-${process.pid}`;
+let baseUrl;
 const integrationPath = path.resolve("custom_components/alerts_assistant");
 let configPath;
 let alertEntityId;
@@ -187,11 +186,15 @@ views:
 
   execFileSync("docker", [
     "run", "--detach", "--name", containerName,
-    "--publish", `127.0.0.1:${port}:8123`,
+    "--publish", "127.0.0.1::8123",
     "--volume", `${configPath}:/config`,
     "--volume", `${integrationPath}:/config/custom_components/alerts_assistant:ro`,
     "homeassistant/home-assistant:stable",
   ], { stdio: "ignore" });
+  const publishedPort = execFileSync(
+    "docker", ["port", containerName, "8123/tcp"], { encoding: "utf8" },
+  ).trim().split(":").at(-1);
+  baseUrl = `http://127.0.0.1:${publishedPort}`;
 
   await waitForHomeAssistant();
   await prepareHomeAssistant();
