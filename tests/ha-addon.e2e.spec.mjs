@@ -149,6 +149,7 @@ async function prepareHomeAssistant() {
 }
 
 test.beforeAll(async () => {
+  test.setTimeout(240_000);
   configPath = await mkdtemp(path.join(tmpdir(), "alerts-assistant-ha-e2e-"));
   await writeFile(path.join(configPath, "configuration.yaml"), `
 default_config:
@@ -192,7 +193,7 @@ views:
 
   await waitForHomeAssistant();
   await prepareHomeAssistant();
-}, 240_000);
+});
 
 test.afterAll(async () => {
   if (!alertEntityId) {
