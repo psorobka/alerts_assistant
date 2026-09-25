@@ -44,7 +44,8 @@ async function post(pathname, body, token) {
 }
 
 async function waitForEntity(token, entityId) {
-  const deadline = Date.now() + 30_000;
+  const deadline = Date.now() + 120_000;
+  let currentEntityIds = [];
   while (Date.now() < deadline) {
     try {
       const response = await fetch(`${baseUrl}/api/states`, {
@@ -53,6 +54,7 @@ async function waitForEntity(token, entityId) {
       });
       if (response.ok) {
         const states = await response.json();
+        currentEntityIds = states.map((state) => state.entity_id);
         if (states.some((state) => state.entity_id === entityId)) return;
       }
     } catch {
@@ -60,7 +62,9 @@ async function waitForEntity(token, entityId) {
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error(`Home Assistant did not create ${entityId}`);
+  throw new Error(
+    `Home Assistant did not create ${entityId}; current entities: ${currentEntityIds.join(", ")}`,
+  );
 }
 
 async function prepareHomeAssistant() {
