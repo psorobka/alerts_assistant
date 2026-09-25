@@ -5,6 +5,8 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
@@ -111,6 +113,27 @@ def _target_schema(
     sensor_options: list[SelectOptionDict] | None = None,
 ) -> vol.Schema:
     """Build an entity picker filtered to the selected entity domain."""
+    device_class_selector = getattr(selector, "DeviceClassSelector", None)
+    if device_class_selector:
+        device_class_field = device_class_selector(
+            selector.DeviceClassSelectorConfig(domain=domain)
+        )
+    else:
+        device_classes = (
+            BinarySensorDeviceClass if domain == "binary_sensor" else SensorDeviceClass
+        )
+        device_class_field = selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=[
+                    SelectOptionDict(
+                        value=device_class.value,
+                        label=device_class.value.replace("_", " ").capitalize(),
+                    )
+                    for device_class in device_classes
+                ],
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        )
     return vol.Schema(
         {
             vol.Optional(CONF_WATCH_TARGET): (
@@ -129,9 +152,7 @@ def _target_schema(
             vol.Optional(CONF_WATCH_LABELS): selector.LabelSelector(
                 selector.LabelSelectorConfig(multiple=True)
             ),
-            vol.Optional(CONF_DEVICE_CLASS): selector.DeviceClassSelector(
-                selector.DeviceClassSelectorConfig(domain=domain)
-            ),
+            vol.Optional(CONF_DEVICE_CLASS): device_class_field,
         }
     )
 

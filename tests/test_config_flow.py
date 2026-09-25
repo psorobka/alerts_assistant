@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType, InvalidData
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import label_registry as lr
+from homeassistant.helpers import selector
 from homeassistant.helpers.selector import (
     EntitySelector,
     LabelSelector,
@@ -16,7 +17,7 @@ from homeassistant.helpers.selector import (
 import pytest
 from pytest_homeassistant_custom_component.common import async_mock_service
 
-from custom_components.alerts_assistant.config_flow import _parse_repeat
+from custom_components.alerts_assistant.config_flow import _parse_repeat, _target_schema
 from custom_components.alerts_assistant.const import (
     CONF_ALERT_STATE,
     CONF_DEVICE_CLASS,
@@ -52,6 +53,28 @@ def test_parse_repeat_rejects_empty_values(value: str) -> None:
 def test_parse_repeat_rejects_non_positive_values(value: str) -> None:
     with pytest.raises(ValueError, match="not_positive"):
         _parse_repeat(value)
+
+
+@pytest.mark.parametrize(
+    ("domain", "expected_class"),
+    [("binary_sensor", "moisture"), ("sensor", "temperature")],
+)
+def test_target_schema_falls_back_to_device_class_dropdown(
+    domain: str, expected_class: str
+) -> None:
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(selector, "DeviceClassSelector", None, raising=False)
+        schema = _target_schema(domain)
+
+    device_class_selector = next(
+        item
+        for key, item in schema.schema.items()
+        if getattr(key, "schema", None) == "device_class"
+    )
+    assert isinstance(device_class_selector, selector.SelectSelector)
+    assert expected_class in {
+        option["value"] for option in device_class_selector.config["options"]
+    }
 
 
 async def _start_alert_flow(hass: HomeAssistant, entry):
@@ -452,7 +475,12 @@ async def test_device_class_filters_entities_and_label_members(
         for key, item in result["data_schema"].schema.items()
         if getattr(key, "schema", None) == CONF_DEVICE_CLASS
     )
-    assert class_selector.config["domain"] == "binary_sensor"
+    if "domain" in class_selector.config:
+        assert class_selector.config["domain"] == "binary_sensor"
+    else:
+        assert "moisture" in {
+            option["value"] for option in class_selector.config["options"]
+        }
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
         {
