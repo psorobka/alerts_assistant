@@ -330,6 +330,40 @@ async def test_custom_title_and_message(hass: HomeAssistant) -> None:
     assert calls[0].data["title"] == "Security"
 
 
+async def test_templates_receive_latest_sensor_value_and_unit(
+    hass: HomeAssistant,
+) -> None:
+    """Templates expose the current sensor value and measurement unit."""
+    calls = async_mock_service(hass, "notify", "test")
+    entity_id = "sensor.battery_level"
+    attributes = {"friendly_name": "Battery", "unit_of_measurement": "%"}
+    hass.states.async_set(entity_id, "15", attributes)
+    entry = make_entry(
+        alert_config(
+            entity_id=entity_id,
+            sensor_mode="numeric",
+            numeric_comparator="below",
+            numeric_threshold=20,
+            repeat=[30.0],
+            message="{{ entity_name }}: {{ value }} {{ unit }}",
+            title="Battery at {{ value }} {{ unit }}",
+        )
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert calls[0].data["message"] == "Battery: 15 %"
+    assert calls[0].data["title"] == "Battery at 15 %"
+
+    hass.states.async_set(entity_id, "14", attributes)
+    await hass.async_block_till_done()
+    _advance(hass, 30)
+    await hass.async_block_till_done()
+
+    assert calls[1].data["message"] == "Battery: 14 %"
+
+
 async def test_notify_failure_does_not_break_loop(hass: HomeAssistant) -> None:
     """S1: a failing notify service must not stop repeats or stick the state."""
     counter = {"n": 0}

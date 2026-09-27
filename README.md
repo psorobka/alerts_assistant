@@ -28,6 +28,7 @@ UI, with no restart.
   notifications silences the alert with one tap.
 - Optional "done" message when the alert clears.
 - Optional notification title / message templates and extra `data`.
+- Smart, editable name and message suggestions based on sensor type and device class.
 - Notify via `notify.*` services or entities, selectable by friendly name or entered manually.
 - Built-in Lovelace card with active alert grouping by room, elapsed time, and per-alert acknowledgement.
 - One hub, many alerts: add/edit/delete each alert independently from the UI —
@@ -54,7 +55,10 @@ The entity/label picker also has an optional **Device class** filter, such as
 An alert can watch several manually selected entities, one or more labels, or both.
 Each matching entity gets a separate `alerts_assistant.*` entity and its own alert
 lifecycle. Templates receive the triggering entity's `entity_id`, `entity_name`, and
-`area`, so a grouped alert can mention the room that needs attention.
+`area`, so a grouped alert can mention the room that needs attention. The message and
+title fields start with suggestions for common cases such as low battery,
+temperature, water leaks, and text sensors. These are regular editable templates;
+the suggestions never overwrite text you have entered when you change settings.
 
 If a manually selected entity or label is deleted, the affected target is removed
 from the active configuration and a yellow Home Assistant **Repair** warning asks
@@ -169,9 +173,9 @@ Or copy `custom_components/alerts_assistant` into your `config/custom_components
 | **Can be acknowledged**  | —        | If off, the alert cannot be silenced with `turn_off` (default on).          |
 | **Acknowledge button in notifications** | — | Adds an Acknowledge action to mobile_app notifications (default on; needs *Can be acknowledged*). |
 | **Skip first notification** | —     | Wait one interval before the first notification instead of firing at once.  |
-| **Notification title**   | no       | Optional template for the notification title.                               |
-| **Notification message** | no       | Optional template; defaults to the alert name.                              |
-| **Done message**         | no       | Optional template sent once when the alert clears.                          |
+| **Notification title**   | no       | Editable suggested template for the notification title.                     |
+| **Notification message** | no       | Editable suggested message template, tailored to the sensor where possible.  |
+| **Done message**         | no       | Editable suggested template sent once when the alert clears.                 |
 | **Extra notification data** | no    | Optional key/values forwarded to the notify service (e.g. `priority`).      |
 
 *Select at least one entity or label. If an entity or label is deleted later, a
@@ -179,10 +183,12 @@ yellow Repair warning identifies the alert that needs review. Removing one membe
 from a group leaves its other alert entities running.
 
 For multi-entity alerts, each notification template receives `entity_id`,
-`entity_name`, and `area` for the sensor that triggered that alert. For example:
+`entity_name`, and `area` for the sensor that triggered that alert. The message and
+done message also receive the latest sensor `value` and its `unit` (when available).
+For example:
 
 ```jinja2
-Wykryto zalanie: {{ area or entity_name }}
+Niski poziom baterii: {{ entity_name }} ma {{ value }} {{ unit }}
 ```
 
 ## Services

@@ -17,15 +17,23 @@ from homeassistant.helpers.selector import (
 import pytest
 from pytest_homeassistant_custom_component.common import async_mock_service
 
-from custom_components.alerts_assistant.config_flow import _parse_repeat, _target_schema
+from custom_components.alerts_assistant.config_flow import (
+    _parse_repeat,
+    _smart_alert_defaults,
+    _target_schema,
+)
 from custom_components.alerts_assistant.const import (
     CONF_ALERT_STATE,
     CONF_DEVICE_CLASS,
+    CONF_DONE_MESSAGE,
     CONF_ENTITY_ID,
+    CONF_MESSAGE,
+    CONF_NAME,
     CONF_NUMERIC_COMPARATOR,
     CONF_NUMERIC_THRESHOLD,
     CONF_SENSOR_MODE,
     CONF_TEXT_STATE,
+    CONF_TITLE,
     DOMAIN,
     SUBENTRY_TYPE_ALERT,
 )
@@ -75,6 +83,44 @@ def test_target_schema_falls_back_to_device_class_dropdown(
     assert expected_class in {
         option["value"] for option in device_class_selector.config["options"]
     }
+
+
+def test_smart_moisture_defaults_are_translated() -> None:
+    defaults = _smart_alert_defaults(
+        language="pl-PL", sensor_mode=None, device_class="moisture"
+    )
+
+    assert defaults[CONF_NAME] == "Zalanie"
+    assert "Wykryto wodę" in defaults[CONF_TITLE]
+    assert "{{ area }}" in defaults[CONF_MESSAGE]
+    assert "ustąpiło" in defaults[CONF_DONE_MESSAGE]
+
+
+@pytest.mark.parametrize(
+    ("language", "sensor_mode", "device_class", "comparator", "expected_name"),
+    [
+        ("en", "numeric", "temperature", "above", "High temperature"),
+        ("pl", "numeric", "temperature", "below", "Niska temperatura"),
+        ("pl", "text", None, "below", "Zmiana stanu"),
+        ("en", None, None, "below", "Sensor alert"),
+    ],
+)
+def test_smart_defaults_match_sensor_type(
+    language: str,
+    sensor_mode: str | None,
+    device_class: str | None,
+    comparator: str,
+    expected_name: str,
+) -> None:
+    defaults = _smart_alert_defaults(
+        language=language,
+        sensor_mode=sensor_mode,
+        device_class=device_class,
+        comparator=comparator,
+    )
+
+    assert defaults[CONF_NAME] == expected_name
+    assert "{{ value }}" in defaults[CONF_MESSAGE]
 
 
 async def _start_alert_flow(hass: HomeAssistant, entry):
@@ -213,6 +259,7 @@ async def test_sensor_flow_uses_numeric_threshold_fields(hass: HomeAssistant) ->
     sensor = er.async_get(hass).async_get_or_create(
         "sensor", DOMAIN, "battery", suggested_object_id="battery"
     )
+    er.async_get(hass).async_update_entity(sensor.entity_id, device_class="battery")
     text_sensor = er.async_get(hass).async_get_or_create(
         "sensor", DOMAIN, "door", suggested_object_id="door"
     )
@@ -242,6 +289,14 @@ async def test_sensor_flow_uses_numeric_threshold_fields(hass: HomeAssistant) ->
     assert CONF_NUMERIC_COMPARATOR in markers
     assert CONF_NUMERIC_THRESHOLD in markers
     assert CONF_ALERT_STATE not in markers
+    suggested_values = {
+        getattr(key, "schema", None): key.description["suggested_value"]
+        for key in result["data_schema"].schema
+        if getattr(key, "schema", None) in {CONF_NAME, CONF_MESSAGE} and key.description
+    }
+    assert suggested_values[CONF_NAME] == "Low battery"
+    assert "{{ value }}" in suggested_values[CONF_MESSAGE]
+    assert "{{ unit }}" in suggested_values[CONF_MESSAGE]
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
         {

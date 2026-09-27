@@ -58,6 +58,135 @@ TEMPLATE_FIELDS = (CONF_TITLE, CONF_MESSAGE, CONF_DONE_MESSAGE)
 DEFAULT_REPEAT_TEXT = "30"
 
 
+def _smart_alert_defaults(
+    *,
+    language: str,
+    sensor_mode: str | None,
+    device_class: str | None,
+    comparator: str = "below",
+) -> dict[str, str]:
+    """Suggest an alert name and notification templates for a sensor class."""
+    polish = language.lower().startswith("pl")
+    area = "{% if area %} ({{ area }}){% endif %}"
+
+    def with_area(template: str) -> str:
+        return template.replace("{area}", area)
+
+    if sensor_mode == "numeric" and device_class == "battery":
+        return {
+            CONF_NAME: "Niski poziom baterii" if polish else "Low battery",
+            CONF_TITLE: (
+                "Niski poziom baterii: {{ entity_name }}"
+                if polish
+                else "Low battery: {{ entity_name }}"
+            ),
+            CONF_MESSAGE: with_area(
+                "Bateria {{ entity_name }}{area} ma {{ value }} {{ unit }}."
+                if polish
+                else "Battery {{ entity_name }}{area} is at {{ value }} {{ unit }}."
+            ),
+            CONF_DONE_MESSAGE: (
+                with_area("Poziom baterii {{ entity_name }}{area} wrócił do normy.")
+                if polish
+                else with_area(
+                    "Battery level for {{ entity_name }}{area} is back to normal."
+                )
+            ),
+        }
+
+    if sensor_mode == "numeric" and device_class == "temperature":
+        low = comparator == "below"
+        if polish:
+            title = (
+                "Niska temperatura: {{ entity_name }}"
+                if low
+                else "Wysoka temperatura: {{ entity_name }}"
+            )
+        else:
+            title = (
+                "Low temperature: {{ entity_name }}"
+                if low
+                else "High temperature: {{ entity_name }}"
+            )
+        return {
+            CONF_NAME: (
+                ("Niska temperatura" if low else "Wysoka temperatura")
+                if polish
+                else ("Low temperature" if low else "High temperature")
+            ),
+            CONF_TITLE: title,
+            CONF_MESSAGE: with_area("{{ entity_name }}{area}: {{ value }} {{ unit }}."),
+            CONF_DONE_MESSAGE: (
+                with_area("Temperatura w {{ entity_name }}{area} wróciła do normy.")
+                if polish
+                else with_area(
+                    "Temperature at {{ entity_name }}{area} is back to normal."
+                )
+            ),
+        }
+
+    if sensor_mode == "text":
+        return {
+            CONF_NAME: "Zmiana stanu" if polish else "State change",
+            CONF_TITLE: (
+                "Stan czujnika: {{ entity_name }}"
+                if polish
+                else "Sensor state: {{ entity_name }}"
+            ),
+            CONF_MESSAGE: with_area(
+                "{{ entity_name }}{area} zgłasza: {{ value }}."
+                if polish
+                else "{{ entity_name }}{area} reports: {{ value }}."
+            ),
+            CONF_DONE_MESSAGE: (
+                with_area("{{ entity_name }}{area} przestał zgłaszać stan alarmowy.")
+                if polish
+                else with_area(
+                    "{{ entity_name }}{area} is no longer reporting the alert state."
+                )
+            ),
+        }
+
+    if device_class == "moisture":
+        return {
+            CONF_NAME: "Zalanie" if polish else "Water leak",
+            CONF_TITLE: (
+                "Wykryto wodę: {{ entity_name }}"
+                if polish
+                else "Water detected: {{ entity_name }}"
+            ),
+            CONF_MESSAGE: with_area(
+                "Wykryto wodę przy czujniku {{ entity_name }}{area}."
+                if polish
+                else "Water detected by {{ entity_name }}{area}."
+            ),
+            CONF_DONE_MESSAGE: (
+                with_area("Zalanie ustąpiło przy czujniku {{ entity_name }}{area}.")
+                if polish
+                else with_area(
+                    "The water alert at {{ entity_name }}{area} has cleared."
+                )
+            ),
+        }
+
+    return {
+        CONF_NAME: "Alert czujnika" if polish else "Sensor alert",
+        CONF_TITLE: (
+            "Alert: {{ entity_name }}" if polish else "Alert: {{ entity_name }}"
+        ),
+        CONF_MESSAGE: with_area(
+            "Czujnik {{ entity_name }}{area} zgłosił stan alarmowy ({{ value }})."
+            if polish
+            else "{{ entity_name }}{area} entered its alert state ({{ value }})."
+        ),
+        CONF_DONE_MESSAGE: (
+            with_area("Alert czujnika {{ entity_name }}{area} ustąpił.")
+            if polish
+            else with_area("The alert from {{ entity_name }}{area} has cleared.")
+        ),
+    }
+
+
 def _parse_repeat(value: str) -> list[float]:
     """Parse a comma-separated list of minutes into floats.
 
@@ -522,6 +651,31 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
         self, step_mode: str, suggested: dict[str, Any]
     ) -> vol.Schema:
         """Build an alert form with state suggestions for its selected entity."""
+        if step_mode == "user":
+            selected_device_class = self._selected_device_class
+            if selected_device_class is None:
+                classes = set()
+                registry = er.async_get(self.hass)
+                for entity_id in self._selected_entity_ids:
+                    entity = registry.async_get(entity_id)
+                    state = self.hass.states.get(entity_id)
+                    device_class = (entity.device_class if entity else None) or (
+                        state.attributes.get("device_class") if state else None
+                    )
+                    if device_class:
+                        classes.add(device_class)
+                if len(classes) == 1:
+                    selected_device_class = classes.pop()
+            defaults = _smart_alert_defaults(
+                language=self.hass.config.language,
+                sensor_mode=(
+                    self._sensor_mode if self._entity_domain == "sensor" else None
+                ),
+                device_class=selected_device_class,
+                comparator=suggested.get(CONF_NUMERIC_COMPARATOR, "below"),
+            )
+            suggested = {**defaults, **suggested}
+
         options = self._notify_targets()
         if step_mode == "reconfigure":
             subentry = self._get_reconfigure_subentry()

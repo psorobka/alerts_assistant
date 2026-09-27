@@ -171,6 +171,15 @@ class Alert(Entity):
             return numeric_value < self._numeric_threshold
         return numeric_value > self._numeric_threshold
 
+    def _template_context(self) -> dict[str, Any]:
+        """Return the alert variables with the latest watched value and unit."""
+        state = self.hass.states.get(self._watched_entity_id)
+        return {
+            **self._template_variables,
+            "value": state.state if state else "",
+            "unit": state.attributes.get("unit_of_measurement", "") if state else "",
+        }
+
     async def _handle_notification_action(self, event: Event) -> None:
         """Acknowledge when this alert's notification action is tapped."""
         if event.data.get(ATTR_ACTION) != self._ack_action_id:
@@ -263,7 +272,7 @@ class Alert(Entity):
             try:
                 if self._message_template is not None:
                     message = self._message_template.async_render(
-                        parse_result=False, variables=self._template_variables
+                        parse_result=False, variables=self._template_context()
                     )
                 else:
                     message = self.name
@@ -279,7 +288,7 @@ class Alert(Entity):
             return
         try:
             message = self._done_message_template.async_render(
-                parse_result=False, variables=self._template_variables
+                parse_result=False, variables=self._template_context()
             )
             await self._send_notification_message(message)
         except Exception:  # noqa: BLE001 - clearing must always complete
@@ -295,7 +304,7 @@ class Alert(Entity):
         msg_payload: dict[str, Any] = {ATTR_MESSAGE: message}
         if self._title_template is not None:
             msg_payload[ATTR_TITLE] = self._title_template.async_render(
-                parse_result=False, variables=self._template_variables
+                parse_result=False, variables=self._template_context()
             )
 
         data: dict[str, Any] = dict(self._data) if self._data else {}
