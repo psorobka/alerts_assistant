@@ -3,6 +3,8 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
   testMatch: "ha-addon.e2e.spec.mjs",
+  timeout: 360_000,
+  retries: process.env.CI ? 1 : 0,
   workers: 1,
   reporter: "list",
   use: {

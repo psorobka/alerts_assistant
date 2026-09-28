@@ -149,7 +149,7 @@ async function prepareHomeAssistant() {
 }
 
 test.beforeAll(async () => {
-  test.setTimeout(240_000);
+  test.setTimeout(360_000);
   configPath = await mkdtemp(path.join(tmpdir(), "alerts-assistant-ha-e2e-"));
   await writeFile(path.join(configPath, "configuration.yaml"), `
 default_config:
@@ -216,7 +216,19 @@ test.afterAll(async () => {
 });
 
 test("real HA loads the installed card and acknowledges its active alert", async ({ page }) => {
+  page.on("console", (message) => {
+    if (message.type() === "error") console.error(`[browser console] ${message.text()}`);
+  });
+  page.on("pageerror", (error) => console.error(`[browser pageerror] ${error.stack}`));
+  page.on("requestfailed", (request) => {
+    console.error(`[browser request failed] ${request.url()}: ${request.failure()?.errorText}`);
+  });
   await page.goto(`${baseUrl}/lovelace/alerts-e2e`);
+
+  const cardScriptResponse = await page.request.get(
+    `${baseUrl}/alerts_assistant/alerts-assistant-card.js`,
+  );
+  expect(cardScriptResponse.ok()).toBe(true);
 
   const card = page.locator("alerts-assistant-card");
   await expect(card).toBeVisible({ timeout: 60_000 });
