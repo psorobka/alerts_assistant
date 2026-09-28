@@ -29,6 +29,7 @@ from custom_components.alerts_assistant.const import (
     CONF_ENTITY_ID,
     CONF_MESSAGE,
     CONF_NAME,
+    CONF_NOTIFIERS,
     CONF_NUMERIC_COMPARATOR,
     CONF_NUMERIC_THRESHOLD,
     CONF_SENSOR_MODE,
@@ -556,6 +557,48 @@ async def test_device_class_filters_entities_and_label_members(
     } == {moisture.entity_id}
 
 
+async def test_device_class_alone_selects_all_matching_entities(
+    hass: HomeAssistant,
+) -> None:
+    """Selecting only a device class targets every current matching entity."""
+    async_mock_service(hass, "notify", "test")
+    entry = make_entry()
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    registry = er.async_get(hass)
+    matching_ids = []
+    for object_id, device_class in (
+        ("leak_a", "moisture"),
+        ("leak_b", "moisture"),
+        ("motion", "occupancy"),
+    ):
+        entity = registry.async_get_or_create(
+            "binary_sensor", DOMAIN, object_id, suggested_object_id=object_id
+        )
+        registry.async_update_entity(entity.entity_id, device_class=device_class)
+        hass.states.async_set(entity.entity_id, "off", {"device_class": device_class})
+        if device_class == "moisture":
+            matching_ids.append(entity.entity_id)
+
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_TYPE_ALERT), context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {"entity_domain": "binary_sensor"}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {CONF_DEVICE_CLASS: "moisture"}
+    )
+    assert result["step_id"] == "user_alert"
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], dict(VALID_INPUT)
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    subentry = next(iter(entry.subentries.values()))
+    assert set(subentry.data["entity_ids"]) == set(matching_ids)
+
+
 async def test_subentry_stores_optional_data(hass: HomeAssistant) -> None:
     async_mock_service(hass, "notify", "test")
     entry = make_entry()
@@ -617,6 +660,30 @@ async def test_manual_notify_target_is_accepted(hass: HomeAssistant) -> None:
     assert result["type"] is FlowResultType.CREATE_ENTRY
     subentry = next(iter(entry.subentries.values()))
     assert subentry.data["notifiers"] == ["notify.custom_target"]
+
+
+async def test_mobile_app_notify_service_is_not_listed_twice(
+    hass: HomeAssistant,
+) -> None:
+    """A phone with a legacy service and modern entity appears once in the list."""
+    async_mock_service(hass, "notify", "mobile_app_piotr")
+    hass.states.async_set("notify.piotr", "on", {"friendly_name": "Telefon Piotra"})
+    entry = make_entry()
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+
+    result = await _start_alert_flow(hass, entry)
+    notifier_selector = next(
+        item
+        for key, item in result["data_schema"].schema.items()
+        if getattr(key, "schema", None) == CONF_NOTIFIERS
+    )
+
+    options = notifier_selector.config["options"]
+    assert [option["value"] for option in options] == [
+        "notify.mobile_app_piotr",
+    ]
+    assert [option["label"] for option in options] == ["Telefon Piotra"]
 
 
 async def test_bare_service_target_is_normalized(hass: HomeAssistant) -> None:

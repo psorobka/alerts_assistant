@@ -19,7 +19,8 @@ UI, with no restart.
   are picked up automatically.
 - Choose between binary, numeric, and text sensors. Numeric sensors support above / below
   thresholds; text sensors match an exact state.
-- Filter selected entities and label members by device class, such as `moisture`.
+- Select all currently available entities of a device class, such as `moisture`, or
+  use the class to filter manually selected entities and label members.
 - Get a translated Home Assistant repair warning if a selected entity or label is
   removed, or if the alert has no active entities.
 - Repeat notifications on a fixed or escalating schedule (e.g. `15, 30, 60`).
@@ -49,8 +50,10 @@ sensor metadata (`device_class`, `state_class`, and unit) and the current value.
 Sensors with no reliable type information appear in both sensor lists and are
 marked as unclear, so a numeric-looking text value such as `123` can still be
 selected as text.
-The entity/label picker also has an optional **Device class** filter, such as
-`moisture`; it narrows both manually selected entities and label members.
+The entity/label picker also has an optional **Device class** selector, such as
+`moisture`. Selecting only a class adds every currently available matching entity
+to the alert. Combined with manually selected entities or labels, it filters those
+targets to the chosen class. Labels remain dynamic and include future members.
 
 An alert can watch several manually selected entities, one or more labels, or both.
 Each matching entity gets a separate `alerts_assistant.*` entity and its own alert
@@ -166,7 +169,7 @@ Or copy `custom_components/alerts_assistant` into your `config/custom_components
 | **Entity type**          | yes      | Binary sensor, numeric sensor, or text sensor. Numeric sensors use a threshold; text sensors match an exact value. |
 | **Entities**             | yes*     | Select one or more entities to monitor. Each gets an independent alert.       |
 | **Entity labels**        | no       | Optionally monitor every entity with the selected labels; membership updates automatically, including future members. |
-| **Device class**         | no       | Optionally filter manually selected entities and label members by class.      |
+| **Device class**         | no       | Select all current entities of a class, or filter selected entities and labels. |
 | **Trigger condition**    | yes      | For `binary_sensor`, the state that fires the alert (default `on`). For numeric `sensor`, use a below/above comparison and threshold. Text sensors match an exact value. |
 | **Notification targets** | yes      | One or more `notify.*` services or entities, chosen from the list or entered manually. |
 | **Repeat (minutes)**     | yes      | Comma-separated minutes between notifications; escalates then holds the last.|

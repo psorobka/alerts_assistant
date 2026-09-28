@@ -114,7 +114,7 @@
           "data_description": {
             "target": "Choose one or more matching entities to monitor.",
             "labels": "Monitor every matching entity with these labels, including entities labeled later. Each entity gets its own independent alert.",
-            "device_class": "Optionally limit selected entities and label members to this device class."
+            "device_class": "By itself, select all current entities with this class. Combined with entities or labels, limit those targets to this class."
           }
         },
         "reconfigure_target": {
@@ -127,7 +127,7 @@
           "data_description": {
             "target": "Choose one or more matching entities to monitor.",
             "labels": "Monitor every matching entity with these labels, including entities labeled later. Each entity gets its own independent alert.",
-            "device_class": "Optionally limit selected entities and label members to this device class."
+            "device_class": "By itself, select all current entities with this class. Combined with entities or labels, limit those targets to this class."
           }
         }
       },

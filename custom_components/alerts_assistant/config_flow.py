@@ -432,23 +432,26 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
             )
 
     def _notify_targets(self) -> list[SelectOptionDict]:
-        """List notify services and entities with human-readable labels."""
-        options = [
-            SelectOptionDict(
-                value=f"{NOTIFY_DOMAIN}.{service}",
-                label=self._notify_label(service),
-            )
-            for service in self.hass.services.async_services().get(NOTIFY_DOMAIN, {})
-            if service != "send_message"
-        ]
-        options.extend(
-            SelectOptionDict(
-                value=state.entity_id,
-                label=state.attributes.get("friendly_name", state.entity_id),
-            )
-            for state in self.hass.states.async_all(NOTIFY_DOMAIN)
+        """List legacy notify targets without duplicate modern entity entries.
+
+        Mobile app devices expose both a legacy notify service and a modern
+        notify entity. The service is the selectable option because it supports
+        custom data and actionable notification buttons. Modern entities remain
+        available through the selector's custom value field.
+        """
+        return sorted(
+            [
+                SelectOptionDict(
+                    value=f"{NOTIFY_DOMAIN}.{service}",
+                    label=self._notify_label(service),
+                )
+                for service in self.hass.services.async_services().get(
+                    NOTIFY_DOMAIN, {}
+                )
+                if service != "send_message"
+            ],
+            key=lambda option: option["label"].casefold(),
         )
-        return sorted(options, key=lambda option: option["label"].casefold())
 
     def _notify_label(self, service: str) -> str:
         """Return a friendly label for a legacy notify service."""
@@ -573,6 +576,22 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
         self._selected_device_class = user_input.get(CONF_DEVICE_CLASS)
         if isinstance(label_ids, str):
             label_ids = [label_ids]
+        if self._selected_device_class and not target and not label_ids:
+            registry = er.async_get(self.hass)
+            target = [
+                entity.entity_id
+                for entity in registry.entities.values()
+                if entity.disabled_by is None
+                and entity.entity_id.startswith(f"{self._entity_domain}.")
+                and self._entity_matches_device_class(
+                    entity.entity_id, self._selected_device_class
+                )
+                and (
+                    self._entity_domain != "sensor"
+                    or (state := self.hass.states.get(entity.entity_id)) is None
+                    or sensor_state_matches_mode(state, self._sensor_mode)
+                )
+            ]
         options = self._entity_options_for_target(target)
         registry = er.async_get(self.hass)
         labeled_ids = {

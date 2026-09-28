@@ -114,7 +114,7 @@
           "data_description": {
             "target": "Wybierz jedną lub więcej pasujących encji do obserwowania.",
             "labels": "Obserwuj każdą pasującą encję z tymi etykietami, także oznaczoną później. Każda encja otrzyma niezależny alert.",
-            "device_class": "Opcjonalnie ogranicz wybrane encje i członków etykiet do tej klasy."
+            "device_class": "Sama klasa wybiera wszystkie obecnie dostępne pasujące encje. W połączeniu z encjami lub etykietami ogranicza cele do tej klasy."
           }
         },
         "reconfigure_target": {
@@ -127,7 +127,7 @@
           "data_description": {
             "target": "Wybierz jedną lub więcej pasujących encji do obserwowania.",
             "labels": "Obserwuj każdą pasującą encję z tymi etykietami, także oznaczoną później. Każda encja otrzyma niezależny alert.",
-            "device_class": "Opcjonalnie ogranicz wybrane encje i członków etykiet do tej klasy."
+            "device_class": "Sama klasa wybiera wszystkie obecnie dostępne pasujące encje. W połączeniu z encjami lub etykietami ogranicza cele do tej klasy."
           }
         }
       },
