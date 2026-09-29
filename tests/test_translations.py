@@ -49,11 +49,9 @@ def test_translations_include_every_string() -> None:
             not in translation["config_subentries"]["alert"]["step"]["user_target"]
         )
         assert "no_entities" in translation["config_subentries"]["alert"]["error"]
-        assert (
-            translation["config_subentries"]["alert"]["abort"][
-                "reconfigure_successful"
-            ].strip()
-        )
+        assert translation["config_subentries"]["alert"]["abort"][
+            "reconfigure_successful"
+        ].strip()
 
 
 def _leaf_values(value: Any):
