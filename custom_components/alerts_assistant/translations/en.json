@@ -139,6 +139,9 @@
         "invalid_comparator": "Choose below or above.",
         "invalid_text_state": "Enter a text value.",
         "invalid_sensor_mode": "Choose number or text."
+      },
+      "abort": {
+        "reconfigure_successful": "Alert configuration was updated successfully."
       }
     }
   },

@@ -48,6 +48,7 @@ from .const import (
     DEFAULT_CAN_ACK,
     DEFAULT_SKIP_FIRST,
     DOMAIN,
+    LOGGER,
     NOTIFY_DOMAIN,
     SUBENTRY_TYPE_ALERT,
 )
@@ -58,6 +59,11 @@ TEMPLATE_FIELDS = (CONF_TITLE, CONF_MESSAGE, CONF_DONE_MESSAGE)
 DEFAULT_REPEAT_TEXT = "30"
 
 
+def _is_polish(language: str | None) -> bool:
+    """Return whether Home Assistant is using Polish, including regional tags."""
+    return (language or "").lower().startswith("pl")
+
+
 def _smart_alert_defaults(
     *,
     language: str,
@@ -66,7 +72,7 @@ def _smart_alert_defaults(
     comparator: str = "below",
 ) -> dict[str, str]:
     """Suggest an alert name and notification templates for a sensor class."""
-    polish = language.lower().startswith("pl")
+    polish = _is_polish(language)
     area = "{% if area %} ({{ area }}){% endif %}"
 
     def with_area(template: str) -> str:
@@ -216,15 +222,15 @@ def _domain_schema(default: str | None = None, *, language: str = "en") -> vol.S
         options=[
             SelectOptionDict(
                 value="binary_sensor",
-                label="Czujnik binarny" if language == "pl" else "Binary sensor",
+                label="Czujnik binarny" if _is_polish(language) else "Binary sensor",
             ),
             SelectOptionDict(
                 value="sensor_numeric",
-                label="Sensor liczbowy" if language == "pl" else "Numeric sensor",
+                label="Sensor liczbowy" if _is_polish(language) else "Numeric sensor",
             ),
             SelectOptionDict(
                 value="sensor_text",
-                label="Sensor tekstowy" if language == "pl" else "Text sensor",
+                label="Sensor tekstowy" if _is_polish(language) else "Text sensor",
             ),
         ],
         mode=selector.SelectSelectorMode.DROPDOWN,
@@ -312,11 +318,11 @@ def _alert_schema(
                         options=[
                             SelectOptionDict(
                                 value="below",
-                                label="Poniżej" if language == "pl" else "Below",
+                                label="Poniżej" if _is_polish(language) else "Below",
                             ),
                             SelectOptionDict(
                                 value="above",
-                                label="Powyżej" if language == "pl" else "Above",
+                                label="Powyżej" if _is_polish(language) else "Above",
                             ),
                         ],
                         mode=selector.SelectSelectorMode.DROPDOWN,
@@ -439,7 +445,7 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
         custom data and actionable notification buttons. Modern entities remain
         available through the selector's custom value field.
         """
-        return sorted(
+        options = sorted(
             [
                 SelectOptionDict(
                     value=f"{NOTIFY_DOMAIN}.{service}",
@@ -452,11 +458,17 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
             ],
             key=lambda option: option["label"].casefold(),
         )
+        LOGGER.debug("Found %d notification service target(s)", len(options))
+        return options
 
     def _notify_label(self, service: str) -> str:
         """Return a friendly label for a legacy notify service."""
         if service == "persistent_notification":
-            return "Home Assistant notification"
+            return (
+                "Powiadomienie w Home Assistant"
+                if _is_polish(self.hass.config.language)
+                else "Home Assistant notification"
+            )
         if service.startswith("mobile_app_"):
             device = service.removeprefix("mobile_app_")
             state = self.hass.states.get(f"notify.{device}")
@@ -464,6 +476,15 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
                 return friendly_name
             return device.replace("_", " ").title()
         return service.replace("_", " ").title()
+
+    def _notify_target_label(self, target: str) -> str:
+        """Return a readable label for an existing notification target."""
+        if target.startswith(f"{NOTIFY_DOMAIN}."):
+            state = self.hass.states.get(target)
+            if state and (friendly_name := state.attributes.get("friendly_name")):
+                return friendly_name
+            return self._notify_label(target.removeprefix(f"{NOTIFY_DOMAIN}."))
+        return target
 
     def _entity_options_for_target(
         self, target: list[str] | str
@@ -494,6 +515,13 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
             else None
         )
         schema = _target_schema(self._entity_domain, sensor_options)
+        LOGGER.debug(
+            "Showing %s target form for domain=%s, sensor_mode=%s, choices=%s",
+            step_id,
+            self._entity_domain,
+            getattr(self, "_sensor_mode", None),
+            len(sensor_options) if sensor_options is not None else "selector",
+        )
         if step_id == "reconfigure_target":
             subentry = self._get_reconfigure_subentry()
             suggested = {}
@@ -512,7 +540,7 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
                         entry = registry.async_get(entity_id)
                         mismatch = (
                             " (typ stanu nie pasuje)"
-                            if self.hass.config.language == "pl"
+                            if _is_polish(self.hass.config.language)
                             else " (current state has a different type)"
                         )
                         sensor_options.append(
@@ -555,13 +583,13 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
             if classification == "ambiguous":
                 label += (
                     " (typ niejednoznaczny)"
-                    if self.hass.config.language == "pl"
+                    if _is_polish(self.hass.config.language)
                     else " (type unclear)"
                 )
             elif classification is None:
                 label += (
                     " (typ nieznany)"
-                    if self.hass.config.language == "pl"
+                    if _is_polish(self.hass.config.language)
                     else " (type unknown)"
                 )
             options.append(SelectOptionDict(value=entity.entity_id, label=label))
@@ -576,6 +604,15 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
         self._selected_device_class = user_input.get(CONF_DEVICE_CLASS)
         if isinstance(label_ids, str):
             label_ids = [label_ids]
+        LOGGER.debug(
+            "Resolving %s targets: domain=%s, entity_count=%d, label_count=%d, "
+            "device_class=%s",
+            step_mode,
+            self._entity_domain,
+            len(target) if isinstance(target, list) else int(bool(target)),
+            len(label_ids),
+            self._selected_device_class,
+        )
         if self._selected_device_class and not target and not label_ids:
             registry = er.async_get(self.hass)
             target = [
@@ -635,6 +672,11 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
                 )
             ]
         if not options and not label_ids:
+            LOGGER.info(
+                "No matching alert targets selected (domain=%s, device_class=%s)",
+                self._entity_domain,
+                self._selected_device_class,
+            )
             return self._target_form(
                 f"{step_mode}_target", {CONF_WATCH_TARGET: "no_entities"}
             )
@@ -650,6 +692,19 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
         # A label means “all matching entities”, including future members.
         # Manual entity selection is already performed in the target dialog.
         self._selected_entity_ids = [option["value"] for option in options]
+        LOGGER.info(
+            "Alert targets selected: %d current entity/entities and %d label(s)%s",
+            len(self._selected_entity_ids),
+            len(self._selected_label_ids),
+            f" (device_class={self._selected_device_class})"
+            if self._selected_device_class
+            else "",
+        )
+        LOGGER.debug(
+            "Resolved alert target entity ids: %s; label ids: %s",
+            self._selected_entity_ids,
+            self._selected_label_ids,
+        )
         if step_mode == "user":
             return await self.async_step_user_alert()
         return await self.async_step_reconfigure_alert()
@@ -700,7 +755,7 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
             subentry = self._get_reconfigure_subentry()
             option_values = {option["value"] for option in options}
             options.extend(
-                SelectOptionDict(value=target, label=target)
+                SelectOptionDict(value=target, label=self._notify_target_label(target))
                 for target in subentry.data.get(CONF_NOTIFIERS, [])
                 if target not in option_values
             )
@@ -729,6 +784,12 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
             numeric_threshold=stored.get(CONF_NUMERIC_THRESHOLD, 20),
             text_state=stored.get(CONF_TEXT_STATE, default_state),
             language=self.hass.config.language,
+        )
+        LOGGER.debug(
+            "Building %s alert form with fields=%s and %d notification target(s)",
+            step_mode,
+            [getattr(key, "schema", str(key)) for key in schema.schema],
+            len(options),
         )
         return self.add_suggested_values_to_schema(schema, suggested)
 
@@ -807,6 +868,7 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
             errors[CONF_NOTIFIERS] = "no_notifiers"
 
         if errors:
+            LOGGER.debug("Alert form validation failed for fields: %s", sorted(errors))
             return None, errors
 
         # Drop empty optional fields so they don't linger in stored data.
@@ -825,6 +887,11 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
                 data_schema=_domain_schema(language=self.hass.config.language),
             )
         self._set_entity_type(user_input[CONF_ENTITY_DOMAIN])
+        LOGGER.debug(
+            "Starting alert flow for domain=%s, sensor_mode=%s",
+            self._entity_domain,
+            getattr(self, "_sensor_mode", None),
+        )
         return self._target_form("user_target")
 
     async def async_step_user_target(
@@ -843,6 +910,24 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
         if user_input is not None:
             data, errors = self._validate(user_input, self._selected_entity_ids)
             if data is not None:
+                LOGGER.info(
+                    "Configured alert '%s' for %d entity/entities, %d label(s), "
+                    "and %d notification target(s)",
+                    data[CONF_NAME],
+                    len(data.get(CONF_ENTITY_IDS, []))
+                    or int(bool(data.get(CONF_ENTITY_ID))),
+                    len(data.get(CONF_LABEL_IDS, [])),
+                    len(data.get(CONF_NOTIFIERS, [])),
+                )
+                LOGGER.debug(
+                    "Alert '%s' config: entities=%s, labels=%s, device_class=%s, "
+                    "notifiers=%s",
+                    data[CONF_NAME],
+                    data.get(CONF_ENTITY_IDS, [data.get(CONF_ENTITY_ID)]),
+                    data.get(CONF_LABEL_IDS, []),
+                    data.get(CONF_DEVICE_CLASS),
+                    data.get(CONF_NOTIFIERS, []),
+                )
                 return self.async_create_entry(title=data[CONF_NAME], data=data)
             suggested = user_input
         else:
@@ -908,6 +993,24 @@ class AlertSubentryFlowHandler(ConfigSubentryFlow):
         if user_input is not None:
             data, errors = self._validate(user_input, self._selected_entity_ids)
             if data is not None:
+                LOGGER.info(
+                    "Updated alert '%s' for %d entity/entities, %d label(s), "
+                    "and %d notification target(s)",
+                    data[CONF_NAME],
+                    len(data.get(CONF_ENTITY_IDS, []))
+                    or int(bool(data.get(CONF_ENTITY_ID))),
+                    len(data.get(CONF_LABEL_IDS, [])),
+                    len(data.get(CONF_NOTIFIERS, [])),
+                )
+                LOGGER.debug(
+                    "Updated alert '%s' config: entities=%s, labels=%s, "
+                    "device_class=%s, notifiers=%s",
+                    data[CONF_NAME],
+                    data.get(CONF_ENTITY_IDS, [data.get(CONF_ENTITY_ID)]),
+                    data.get(CONF_LABEL_IDS, []),
+                    data.get(CONF_DEVICE_CLASS),
+                    data.get(CONF_NOTIFIERS, []),
+                )
                 return self.async_update_and_abort(
                     self._get_entry(),
                     subentry,

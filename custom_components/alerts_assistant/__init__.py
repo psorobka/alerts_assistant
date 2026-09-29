@@ -62,6 +62,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             ]
         )
         add_extra_js_url(hass, CARD_URL)
+        LOGGER.debug("Registered Lovelace card at %s", CARD_URL)
 
     component: EntityComponent[Alert] = EntityComponent(LOGGER, DOMAIN, hass)
     hass.data[DOMAIN] = component
@@ -173,6 +174,11 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: AlertsAssistantConfigEntry
 ) -> bool:
     """Set up alert entities from the hub entry's subentries."""
+    LOGGER.info(
+        "Setting up Alerts Assistant entry '%s' with %d alert(s)",
+        entry.title,
+        len(entry.subentries),
+    )
     label_registry = lr.async_get(hass)
     for subentry in entry.subentries.values():
         data = dict(subentry.data)
@@ -183,6 +189,11 @@ async def async_setup_entry(
             if label_registry.async_get_label(label_id) is None
         ]
         if missing_labels:
+            LOGGER.info(
+                "Alert '%s' refers to deleted label id(s): %s",
+                data.get(CONF_NAME, subentry.title),
+                missing_labels,
+            )
             data[CONF_LABEL_IDS] = [
                 label_id for label_id in labels if label_id not in missing_labels
             ]
@@ -202,6 +213,7 @@ async def async_setup_entry(
         entry.runtime_data[subentry_id] = alerts
         entities.extend(alerts)
     await component.async_add_entities(entities)
+    LOGGER.debug("Restored %d alert entity/entities", len(entities))
 
     # Reconcile entities on any subentry add/edit/delete, instead of reloading
     # the whole entry (which would re-notify and un-acknowledge every alert).
@@ -240,6 +252,11 @@ async def async_setup_entry(
                         else:
                             data.pop(CONF_ENTITY_IDS)
                 if changed:
+                    LOGGER.info(
+                        "Watched entity '%s' was removed from alert '%s'",
+                        entity_id,
+                        data.get(CONF_NAME, subentry.title),
+                    )
                     hass.config_entries.async_update_subentry(
                         entry, subentry, data=data
                     )
@@ -260,10 +277,12 @@ async def async_setup_entry(
         if event.data.get("action") != "remove":
             return
         label_id = event.data.get("label_id")
+        affected_alerts = 0
         for subentry in entry.subentries.values():
             data = dict(subentry.data)
             labels = [item for item in data.get(CONF_LABEL_IDS, []) if item != label_id]
             if labels != data.get(CONF_LABEL_IDS, []):
+                affected_alerts += 1
                 missing = set(data.get(CONF_MISSING_LABEL_IDS, []))
                 missing.add(label_id)
                 data[CONF_MISSING_LABEL_IDS] = sorted(missing)
@@ -272,6 +291,12 @@ async def async_setup_entry(
                 else:
                     data.pop(CONF_LABEL_IDS)
                 hass.config_entries.async_update_subentry(entry, subentry, data=data)
+        if affected_alerts:
+            LOGGER.info(
+                "Removed label '%s' from %d alert configuration(s)",
+                label_id,
+                affected_alerts,
+            )
         await _async_reconcile(hass, entry)
 
     entry.async_on_unload(
@@ -290,6 +315,11 @@ async def _async_reconcile(
     component: EntityComponent[Alert] = hass.data[DOMAIN]
     live = entry.runtime_data
     desired = _desired_alerts(hass, entry, excluded_entity_ids)
+    LOGGER.debug(
+        "Reconciling %d alert configuration(s); excluded entities=%s",
+        len(desired),
+        sorted(excluded_entity_ids or set()),
+    )
     ent_reg = er.async_get(hass)
 
     new_entities = []
@@ -309,6 +339,7 @@ async def _async_reconcile(
             )
         }
         if alerts and alerts[0].source_config != logical_config:
+            LOGGER.debug("Alert configuration changed for '%s'", config.get(CONF_NAME))
             for alert in alerts:
                 await alert.async_remove()
             alerts = []
@@ -327,6 +358,12 @@ async def _async_reconcile(
         existing_ids = {alert._watched_entity_id for alert in retained}
         missing_ids = wanted_ids - existing_ids
         if missing_ids:
+            LOGGER.info(
+                "Adding %d alert entity/entities for '%s'",
+                len(missing_ids),
+                config.get(CONF_NAME),
+            )
+            LOGGER.debug("New alert entities watch: %s", sorted(missing_ids))
             member_config = {
                 **config,
                 RESOLVED_ENTITY_IDS: sorted(missing_ids),
@@ -343,6 +380,12 @@ async def _async_reconcile(
         if wanted_ids and not missing_targets:
             ir.async_delete_issue(hass, DOMAIN, issue_id)
         else:
+            if (DOMAIN, issue_id) not in ir.async_get(hass).issues:
+                LOGGER.info(
+                    "Alert '%s' needs attention: no active watched entities "
+                    "or missing targets",
+                    config.get(CONF_NAME, subentry_id),
+                )
             ir.async_create_issue(
                 hass,
                 DOMAIN,
@@ -360,7 +403,7 @@ async def _async_reconcile(
                     )
                     or (
                         "brak pasujących encji"
-                        if hass.config.language == "pl"
+                        if (hass.config.language or "").lower().startswith("pl")
                         else "no matching entities"
                     ),
                 },
@@ -368,6 +411,7 @@ async def _async_reconcile(
 
     # Remove subentries that were deleted.
     for subentry_id in live.keys() - desired.keys():
+        LOGGER.info("Removing alerts for deleted configuration '%s'", subentry_id)
         for alert in live.pop(subentry_id):
             entity_id = alert.entity_id
             await alert.async_remove()
@@ -382,6 +426,7 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: AlertsAssistantConfigEntry
 ) -> bool:
     """Remove alert entities from state, keeping their registry entries."""
+    LOGGER.info("Unloading Alerts Assistant entry '%s'", entry.title)
     for alerts in list(getattr(entry, "runtime_data", {}).values()):
         for alert in alerts:
             await alert.async_remove()
@@ -393,6 +438,7 @@ async def async_remove_entry(
     hass: HomeAssistant, entry: AlertsAssistantConfigEntry
 ) -> None:
     """Purge all alert registry entries when the integration is removed."""
+    LOGGER.info("Removing Alerts Assistant entry '%s'", entry.title)
     ent_reg = er.async_get(hass)
     for entity_id, reg_entry in list(ent_reg.entities.items()):
         if reg_entry.platform == DOMAIN:

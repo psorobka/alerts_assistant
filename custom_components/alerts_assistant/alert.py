@@ -221,13 +221,25 @@ class Alert(Entity):
             return
         matches = self._matches_alert(new_state.state)
         if matches is True and not self._firing:
+            LOGGER.info(
+                "Alert '%s' triggered by %s (state=%s)",
+                self.name,
+                self._watched_entity_id,
+                new_state.state,
+            )
             await self.begin_alerting()
         elif matches is False and self._firing:
+            LOGGER.info(
+                "Alert '%s' cleared by %s (state=%s)",
+                self.name,
+                self._watched_entity_id,
+                new_state.state,
+            )
             await self.end_alerting()
 
     async def begin_alerting(self) -> None:
         """Begin the alert procedure."""
-        LOGGER.debug("Beginning alert: %s", self.name)
+        LOGGER.debug("Beginning notification loop for alert '%s'", self.name)
         self._ack = False
         self._firing = True
         self._triggered_at = now()
@@ -240,7 +252,7 @@ class Alert(Entity):
 
     async def end_alerting(self) -> None:
         """End the alert procedure."""
-        LOGGER.debug("Ending alert: %s", self.name)
+        LOGGER.debug("Ending notification loop for alert '%s'", self.name)
         if self._cancel is not None:
             self._cancel()
             self._cancel = None
@@ -267,7 +279,7 @@ class Alert(Entity):
         if not self._firing:
             return
         if not self._ack:
-            LOGGER.info("Alerting: %s", self.name)
+            LOGGER.debug("Sending notification for alert '%s'", self.name)
             self._send_done_message = True
             try:
                 if self._message_template is not None:
@@ -299,7 +311,14 @@ class Alert(Entity):
     ) -> None:
         """Call each configured notify service with the message payload."""
         if not self._notifiers:
+            LOGGER.debug("Alert '%s' has no notification targets", self.name)
             return
+
+        LOGGER.debug(
+            "Sending alert '%s' notification to %d target(s)",
+            self.name,
+            len(self._notifiers),
+        )
 
         msg_payload: dict[str, Any] = {ATTR_MESSAGE: message}
         if self._title_template is not None:
@@ -346,15 +365,22 @@ class Alert(Entity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Unacknowledge the alert (re-arm notifications)."""
-        LOGGER.debug("Reset alert: %s", self.name)
+        if self._ack:
+            LOGGER.info("Alert '%s' re-armed", self.name)
         self._ack = False
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Acknowledge the alert, silencing further notifications."""
-        LOGGER.debug("Acknowledged alert: %s", self.name)
         if self._can_ack:
+            if not self._ack:
+                LOGGER.info("Alert '%s' acknowledged", self.name)
             self._ack = True
+        else:
+            LOGGER.debug(
+                "Ignoring acknowledgement for non-acknowledgeable alert '%s'",
+                self.name,
+            )
         self.async_write_ha_state()
 
     async def async_toggle(self, **kwargs: Any) -> None:

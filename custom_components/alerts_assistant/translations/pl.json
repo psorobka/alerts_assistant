@@ -139,6 +139,9 @@
         "invalid_comparator": "Wybierz poniżej lub powyżej.",
         "invalid_text_state": "Podaj wartość tekstową.",
         "invalid_sensor_mode": "Wybierz liczbę albo tekst."
+      },
+      "abort": {
+        "reconfigure_successful": "Konfiguracja alertu została zaktualizowana."
       }
     }
   },
