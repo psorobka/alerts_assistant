@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType, InvalidData
@@ -18,6 +20,8 @@ import pytest
 from pytest_homeassistant_custom_component.common import async_mock_service
 
 from custom_components.alerts_assistant.config_flow import (
+    _alert_schema,
+    _domain_schema,
     _parse_repeat,
     _smart_alert_defaults,
     _target_schema,
@@ -50,6 +54,30 @@ VALID_INPUT = {
     "skip_first": False,
 }
 TARGET_INPUT = {"target": ["binary_sensor.garage"]}
+
+
+def test_polish_regional_language_uses_polish_selector_labels() -> None:
+    """Home Assistant language tags like pl-PL still receive Polish UI labels."""
+    domain_schema = _domain_schema(language="pl-PL")
+    domain_selector = next(iter(domain_schema.schema.values()))
+    assert [option["label"] for option in domain_selector.config["options"]] == [
+        "Czujnik binarny",
+        "Sensor liczbowy",
+        "Sensor tekstowy",
+    ]
+
+    alert_schema = _alert_schema(
+        [], None, "on", sensor_mode="numeric", language="pl-PL"
+    )
+    comparator = next(
+        item
+        for key, item in alert_schema.schema.items()
+        if getattr(key, "schema", None) == CONF_NUMERIC_COMPARATOR
+    )
+    assert [option["label"] for option in comparator.config["options"]] == [
+        "Poniżej",
+        "Powyżej",
+    ]
 
 
 @pytest.mark.parametrize("value", ["", " , "])
@@ -177,8 +205,11 @@ async def test_single_instance_only(hass: HomeAssistant) -> None:
     assert result["reason"] == "single_instance_allowed"
 
 
-async def test_subentry_user_flow_adds_alert(hass: HomeAssistant) -> None:
+async def test_subentry_user_flow_adds_alert(
+    hass: HomeAssistant, caplog: pytest.LogCaptureFixture
+) -> None:
     async_mock_service(hass, "notify", "test")
+    caplog.set_level(logging.DEBUG, logger="custom_components.alerts_assistant")
     entry = make_entry()
     entry.add_to_hass(hass)
     await hass.config_entries.async_setup(entry.entry_id)
@@ -195,6 +226,12 @@ async def test_subentry_user_flow_adds_alert(hass: HomeAssistant) -> None:
     assert subentries[0].title == "Garage"
     assert subentries[0].data[CONF_ENTITY_ID] == "binary_sensor.garage"
     assert subentries[0].data["repeat"] == [30.0]
+    assert (
+        "Alert targets selected: 1 current entity/entities and 0 label(s)"
+        in caplog.text
+    )
+    assert "Configured alert 'Garage' for 1 entity/entities" in caplog.text
+    assert "Alert 'Garage' config: entities=['binary_sensor.garage']" in caplog.text
 
 
 async def test_entity_target_step_is_filtered_by_selected_domain(
@@ -858,3 +895,45 @@ async def test_reconfigure_clears_optional_field(hass: HomeAssistant) -> None:
     )
     assert result["type"] is FlowResultType.ABORT
     assert "message" not in entry.subentries[subentry_id].data
+
+
+async def test_reconfigure_shows_friendly_label_for_existing_notify_target(
+    hass: HomeAssistant,
+) -> None:
+    """Existing notify entities show their friendly name instead of raw IDs."""
+    watched_entity = er.async_get(hass).async_get_or_create(
+        "binary_sensor",
+        DOMAIN,
+        "garage",
+        suggested_object_id="garage",
+    )
+    hass.states.async_set(watched_entity.entity_id, "off")
+    hass.states.async_set("notify.piotr", "on", {"friendly_name": "Telefon Piotra"})
+    entry = make_entry(
+        alert_config(entity_id=watched_entity.entity_id, notifiers=["notify.piotr"])
+    )
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_TYPE_ALERT),
+        context={"source": "reconfigure", "subentry_id": "alert-0"},
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {"entity_domain": "binary_sensor"}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {"target": [watched_entity.entity_id]}
+    )
+    notifier_selector = next(
+        item
+        for key, item in result["data_schema"].schema.items()
+        if getattr(key, "schema", None) == CONF_NOTIFIERS
+    )
+    existing_option = next(
+        option
+        for option in notifier_selector.config["options"]
+        if option["value"] == "notify.piotr"
+    )
+
+    assert existing_option["label"] == "Telefon Piotra"
