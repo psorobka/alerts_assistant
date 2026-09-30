@@ -8,10 +8,13 @@ services (turn_off acknowledges, like the built-in alert).
 
 from __future__ import annotations
 
+from hashlib import sha256
 from pathlib import Path
 
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.lovelace import LOVELACE_DATA
+from homeassistant.components.lovelace.resources import ResourceStorageCollection
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import SERVICE_TOGGLE, SERVICE_TURN_OFF, SERVICE_TURN_ON
 from homeassistant.core import HomeAssistant
@@ -42,6 +45,8 @@ from .sensor_utils import sensor_state_matches_mode
 # This integration is configured from config entries only (no YAML).
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 CARD_URL = "/alerts_assistant/alerts-assistant-card.js"
+CARD_PATH = Path(__file__).parent / "www" / "alerts-assistant-card.js"
+CARD_RESOURCE_URL = f"{CARD_URL}?v={sha256(CARD_PATH.read_bytes()).hexdigest()[:12]}"
 
 # runtime_data maps subentry_id -> independently running alert entities.
 type AlertsAssistantConfigEntry = ConfigEntry[dict[str, list[Alert]]]
@@ -56,13 +61,36 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             [
                 StaticPathConfig(
                     CARD_URL,
-                    str(Path(__file__).parent / "www" / "alerts-assistant-card.js"),
+                    str(CARD_PATH),
                     cache_headers=False,
                 )
             ]
         )
-        add_extra_js_url(hass, CARD_URL)
-        LOGGER.debug("Registered Lovelace card at %s", CARD_URL)
+        lovelace = hass.data.get(LOVELACE_DATA)
+        resources = getattr(lovelace, "resources", None)
+        if isinstance(resources, ResourceStorageCollection):
+            await resources.async_get_info()
+            existing_resource = next(
+                (
+                    resource
+                    for resource in resources.async_items()
+                    if resource.get("url", "").split("?", 1)[0] == CARD_URL
+                ),
+                None,
+            )
+            if existing_resource is None:
+                await resources.async_create_item(
+                    {"res_type": "module", "url": CARD_RESOURCE_URL}
+                )
+            elif existing_resource["url"] != CARD_RESOURCE_URL:
+                await resources.async_update_item(
+                    existing_resource["id"],
+                    {"res_type": "module", "url": CARD_RESOURCE_URL},
+                )
+        else:
+            # YAML Lovelace has no stored resource collection.
+            add_extra_js_url(hass, CARD_RESOURCE_URL)
+        LOGGER.debug("Registered Lovelace card at %s", CARD_RESOURCE_URL)
 
     component: EntityComponent[Alert] = EntityComponent(LOGGER, DOMAIN, hass)
     hass.data[DOMAIN] = component

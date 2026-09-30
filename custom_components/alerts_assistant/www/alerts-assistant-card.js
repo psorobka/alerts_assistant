@@ -1,4 +1,5 @@
 const CARD_TYPE = "alerts-assistant-card";
+const CARD_EDITOR_TYPE = "alerts-assistant-card-editor";
 
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -19,8 +20,14 @@ const formatElapsed = (started, now = Date.now(), language = "en") => {
 };
 
 const TEXT = {
-  en: { title: "Alerts", other: "Other", empty: "No active alerts", cleared: "No alerts", active: "Active", acknowledged: "Acknowledged", resolved: "Cleared", ack: "Acknowledge", rearm: "Re-arm" },
-  pl: { title: "Alerty", other: "Pozostałe", empty: "Brak aktywnych alertów", cleared: "Brak alertów", active: "Aktywny", acknowledged: "Potwierdzony", resolved: "Zakończony", ack: "Potwierdź", rearm: "Uzbrój ponownie" },
+  en: { title: "Alerts", other: "Other", empty: "No active alerts", cleared: "No alerts", active: "Active", acknowledged: "ACK · Acknowledged", resolved: "OK", since: "Since", ack: "Acknowledge", rearm: "Re-arm", display: "Show alerts", activeOnly: "Active only", all: "All (including OK)" },
+  pl: { title: "Alerty", other: "Pozostałe", empty: "Brak aktywnych alertów", cleared: "Brak alertów", active: "Aktywny", acknowledged: "ACK · Potwierdzony", resolved: "OK", since: "Od", ack: "Potwierdź", rearm: "Uzbrój ponownie", display: "Pokaż alerty", activeOnly: "Tylko aktywne", all: "Wszystkie (także OK)" },
+};
+
+const formatStarted = (started, language = "en") => {
+  const timestamp = Date.parse(started);
+  if (!Number.isFinite(timestamp)) return "";
+  return new Intl.DateTimeFormat(language, { dateStyle: "short", timeStyle: "short" }).format(timestamp);
 };
 
 const getAlerts = (states, showCleared = false) => Object.entries(states)
@@ -42,6 +49,10 @@ const groupAlerts = (alerts, groupByArea = true, otherLabel = "Other") => {
 };
 
 class AlertsAssistantCard extends HTMLElement {
+  static getConfigElement() { return document.createElement(CARD_EDITOR_TYPE); }
+
+  static getStubConfig() { return { show_cleared: false }; }
+
   setConfig(config = {}) {
     this.config = { show_cleared: false, group_by_area: true, ...config };
     this.render();
@@ -104,26 +115,68 @@ class AlertsAssistantCard extends HTMLElement {
     const acknowledged = state.state === "off" || attrs.acknowledged;
     const language = this._hass?.locale?.language || "en";
     const elapsed = active ? formatElapsed(attrs.triggered_at, Date.now(), language) : "";
+    const started = active ? formatStarted(attrs.triggered_at, language) : "";
     const status = !active ? this.text("resolved") : acknowledged ? this.text("acknowledged") : this.text("active");
     const action = active
       ? `<button data-entity="${escapeHtml(entity_id)}" data-service="${acknowledged ? "turn_on" : "turn_off"}">${this.text(acknowledged ? "rearm" : "ack")}</button>`
       : "";
     return `<div class="row"><span class="icon">${active ? (acknowledged ? "✓" : "⚠️") : "○"}</span>
       <div class="body"><div class="name">${escapeHtml(name)}</div>
-      <div class="meta ${acknowledged ? "ack" : ""}">${status}${elapsed ? ` · ${elapsed}` : ""}</div></div>${action}</div>`;
+      <div class="meta ${acknowledged ? "ack" : ""}">${status}${elapsed ? ` · ${elapsed}` : ""}</div>
+      ${started ? `<div class="meta">${this.text("since")}: ${escapeHtml(started)}</div>` : ""}</div>${action}</div>`;
   }
 
   getCardSize() { return 3; }
 }
 
+class AlertsAssistantCardEditor extends HTMLElement {
+  setConfig(config) {
+    this.config = config;
+    this.render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this.render();
+  }
+
+  connectedCallback() {
+    this._root = this.attachShadow({ mode: "open" });
+    this._root.addEventListener("change", (event) => {
+      if (event.target.id !== "display") return;
+      this.config = { ...this.config, show_cleared: event.target.value === "all" };
+      this.dispatchEvent(new CustomEvent("config-changed", {
+        detail: { config: this.config }, bubbles: true, composed: true,
+      }));
+    });
+    this.render();
+  }
+
+  render() {
+    if (!this._root || !this.config) return;
+    const language = this._hass?.locale?.language?.toLowerCase().startsWith("pl") ? "pl" : "en";
+    const text = TEXT[language];
+    this._root.innerHTML = `<style>
+      label{display:block;margin-bottom:8px;color:var(--primary-text-color)}
+      select{width:100%;padding:10px;border:1px solid var(--divider-color);border-radius:4px;
+        background:var(--card-background-color);color:var(--primary-text-color)}
+    </style><label for="display">${text.display}</label>
+      <select id="display"><option value="active">${text.activeOnly}</option>
+      <option value="all">${text.all}</option></select>`;
+    this._root.querySelector("select").value = this.config.show_cleared ? "all" : "active";
+  }
+}
+
 if (!customElements.get(CARD_TYPE)) customElements.define(CARD_TYPE, AlertsAssistantCard);
+if (!customElements.get(CARD_EDITOR_TYPE)) customElements.define(CARD_EDITOR_TYPE, AlertsAssistantCardEditor);
 window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === `custom:${CARD_TYPE}`)) {
+if (!window.customCards.some((card) => card.type === CARD_TYPE)) {
   window.customCards.push({
-    type: `custom:${CARD_TYPE}`,
+    type: CARD_TYPE,
     name: "Alerts Assistant",
     description: "Displays and acknowledges Alerts Assistant alerts, grouped by room.",
+    preview: false,
   });
 }
 
-window.AlertsAssistantCardInternals = { formatElapsed, escapeHtml, getAlerts, groupAlerts };
+window.AlertsAssistantCardInternals = { formatElapsed, formatStarted, escapeHtml, getAlerts, groupAlerts };
