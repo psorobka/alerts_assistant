@@ -3,11 +3,11 @@
   "name": "Alerts Assistant",
   "codeowners": ["@psorobka"],
   "config_flow": true,
-  "dependencies": ["http"],
+  "dependencies": ["frontend", "http"],
   "documentation": "https://github.com/psorobka/alerts_assistant",
   "integration_type": "hub",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/psorobka/alerts_assistant/issues",
   "single_config_entry": true,
-  "version": "1.0.0"
+  "version": "1.0.1"
 }
