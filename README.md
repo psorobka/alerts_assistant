@@ -118,9 +118,11 @@ Alerts Assistant registers its Lovelace card automatically; no separate HACS
 frontend repository or resource URL is needed. In a dashboard, choose **Edit
 dashboard → Add card**, search for **Alerts Assistant**, and add it. The card finds
 all `alerts_assistant.*` entities automatically, groups active alerts by area,
-shows how long each has been active, and lets you acknowledge or re-arm each alert
-individually. Alerts without an area appear under **Other**. Cleared alerts are
-hidden by default; optional YAML settings are:
+shows when each alert started and how long it has been active, and lets you
+acknowledge or re-arm each alert individually. Acknowledged alerts are marked
+**ACK**. Alerts without an area appear under **Other**. The card editor lets you
+show active alerts only or all alerts; idle alerts appear as **OK** when all are
+shown. Optional YAML settings are:
 
 ```yaml
 type: custom:alerts-assistant-card

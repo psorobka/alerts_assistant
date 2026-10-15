@@ -16,6 +16,9 @@ vm.runInNewContext(fs.readFileSync(new URL("../custom_components/alerts_assistan
   String,
   Number,
   Math,
+  CustomEvent: class {
+    constructor(type, options) { this.type = type; Object.assign(this, options); }
+  },
   setInterval,
   clearInterval,
 });
@@ -52,5 +55,47 @@ test("cleared alerts can be included and entities without an area use Other", ()
 
 test("card registers itself in Home Assistant", () => {
   assert.equal(registry.has("alerts-assistant-card"), true);
-  assert.equal(window.customCards[0].type, "custom:alerts-assistant-card");
+  assert.equal(registry.has("alerts-assistant-card-editor"), true);
+  assert.equal(window.customCards[0].type, "alerts-assistant-card");
+});
+
+test("all alerts show OK, start time and acknowledgement status", () => {
+  const Card = registry.get("alerts-assistant-card");
+  const view = new Card();
+  view._hass = { locale: { language: "pl" } };
+  view.config = { show_cleared: true };
+  const started = "2026-01-01T10:00:00Z";
+  const firing = view.renderAlert({ entity_id: "alerts_assistant.leak", state: {
+    state: "on", attributes: { friendly_name: "Wyciek", triggered_at: started },
+  }, active: true });
+  assert.match(firing, /Od: /);
+  assert.match(firing, /data-service="turn_off"/);
+  const acknowledged = view.renderAlert({ entity_id: "alerts_assistant.leak", state: {
+    state: "off", attributes: { triggered_at: started, acknowledged: true },
+  }, active: true });
+  assert.match(acknowledged, /ACK · Potwierdzony/);
+  const idle = view.renderAlert({ entity_id: "alerts_assistant.leak", state: {
+    state: "idle", attributes: {},
+  }, active: false });
+  assert.match(idle, />OK</);
+});
+
+test("visual editor switches between active and all alerts", () => {
+  const Editor = registry.get("alerts-assistant-card-editor");
+  const editor = new Editor();
+  let onChange;
+  let selected;
+  let emitted;
+  editor.attachShadow = () => ({
+    addEventListener: (_name, callback) => { onChange = callback; },
+    querySelector: () => ({ set value(value) { selected = value; } }),
+  });
+  editor.dispatchEvent = (event) => { emitted = event; };
+  editor.connectedCallback();
+  editor.setConfig({ title: "Home", show_cleared: false });
+  assert.equal(selected, "active");
+  onChange({ target: { id: "display", value: "all" } });
+  assert.equal(emitted.type, "config-changed");
+  assert.equal(emitted.detail.config.show_cleared, true);
+  assert.equal(emitted.detail.config.title, "Home");
 });

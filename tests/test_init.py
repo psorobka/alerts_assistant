@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from types import MappingProxyType
+from types import MappingProxyType, SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from homeassistant.components.lovelace import LOVELACE_DATA
+from homeassistant.components.lovelace.resources import ResourceStorageCollection
 from homeassistant.config_entries import ConfigEntryState, ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -12,10 +14,33 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers import label_registry as lr
 from pytest_homeassistant_custom_component.common import async_mock_service
 
-from custom_components.alerts_assistant import async_setup
+from custom_components.alerts_assistant import CARD_RESOURCE_URL, async_setup
 from custom_components.alerts_assistant.const import DOMAIN, SUBENTRY_TYPE_ALERT
 
 from .conftest import alert_config, make_entry
+
+
+class StubResourceStorageCollection(ResourceStorageCollection):
+    """Capture Lovelace resource writes without initializing HA storage."""
+
+    def __init__(self, items: list[dict] | None = None) -> None:
+        self.items = items or []
+        self.created: list[dict] = []
+        self.updated: list[tuple[str, dict]] = []
+
+    async def async_get_info(self) -> dict[str, int]:
+        return {"resources": len(self.items)}
+
+    def async_items(self) -> list[dict]:
+        return self.items
+
+    async def async_create_item(self, data: dict) -> dict:
+        self.created.append(data)
+        return data
+
+    async def async_update_item(self, item_id: str, updates: dict) -> dict:
+        self.updated.append((item_id, updates))
+        return updates
 
 
 async def test_setup_registers_and_loads_frontend_card(hass: HomeAssistant) -> None:
@@ -34,9 +59,53 @@ async def test_setup_registers_and_loads_frontend_card(hass: HomeAssistant) -> N
     static_path = http.async_register_static_paths.await_args.args[0][0]
     assert static_path.url_path == "/alerts_assistant/alerts-assistant-card.js"
     assert static_path.path.endswith("www/alerts-assistant-card.js")
-    add_extra_js_url.assert_called_once_with(
-        hass, "/alerts_assistant/alerts-assistant-card.js"
+    add_extra_js_url.assert_called_once_with(hass, CARD_RESOURCE_URL)
+
+
+async def test_setup_adds_card_to_storage_lovelace_resources(
+    hass: HomeAssistant,
+) -> None:
+    """Storage-mode dashboards receive a persistent module resource."""
+    http = MagicMock()
+    http.async_register_static_paths = AsyncMock()
+    resources = StubResourceStorageCollection()
+    hass.data[LOVELACE_DATA] = SimpleNamespace(resources=resources)
+    with (
+        patch.object(hass, "http", http),
+        patch.object(hass.config, "components", {"frontend", "lovelace"}),
+        patch(
+            "custom_components.alerts_assistant.add_extra_js_url"
+        ) as add_extra_js_url,
+    ):
+        assert await async_setup(hass, {})
+
+    assert resources.created == [
+        {
+            "res_type": "module",
+            "url": CARD_RESOURCE_URL,
+        }
+    ]
+    add_extra_js_url.assert_not_called()
+
+
+async def test_setup_updates_existing_card_resource(hass: HomeAssistant) -> None:
+    """An existing resource gets a new URL when the card script changes."""
+    http = MagicMock()
+    http.async_register_static_paths = AsyncMock()
+    resources = StubResourceStorageCollection(
+        [{"id": "card", "url": "/alerts_assistant/alerts-assistant-card.js"}]
     )
+    hass.data[LOVELACE_DATA] = SimpleNamespace(resources=resources)
+    with (
+        patch.object(hass, "http", http),
+        patch.object(hass.config, "components", {"frontend", "lovelace"}),
+    ):
+        assert await async_setup(hass, {})
+
+    assert resources.created == []
+    assert resources.updated == [
+        ("card", {"res_type": "module", "url": CARD_RESOURCE_URL})
+    ]
 
 
 async def test_setup_creates_entities_and_services(hass: HomeAssistant) -> None:
